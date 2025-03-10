@@ -1,14 +1,17 @@
 import { Minitel, MinitelWS } from "./minitel.js";
 import { startServer } from "./server.js";
-
-// Import service functions
-import { annuaire } from "./annuaire.js";
-import { snakeGame } from "./snake.js";
 import { seine } from "./seine.js";
+
+const programs = {
+  seine: seine,
+};
 
 // Welcome page handler
 async function welcomePage(websocket) {
   const m = new Minitel(new MinitelWS(websocket));
+
+  // Get sorted keys for alphabetical ordering
+  const sortedKeys = Object.keys(programs).sort();
 
   // Function to display the welcome page
   async function displayWelcome() {
@@ -17,27 +20,33 @@ async function welcomePage(websocket) {
 
     // Display title
     await m.pos(2, 13);
-    await m.color(m.blanc);
-    await m.backcolor(m.bleu);
+    await m.color(m.noir);
+    await m.backcolor(m.blanc);
     await m.print(" 3615 UCODIA ");
     await m.normal();
 
-    // Display menu
-    await m.pos(6, 10);
-    await m.print("1 - Annuaire");
+    // Display subtitle on two lines, centered
+    const subtitle1 = "galerie d'art génératif";
+    const subtitle2 = "sur minitel";
 
-    await m.pos(8, 10);
-    await m.print("2 - Snake");
+    // Calculate center positions (screen is 40 columns wide)
+    const subtitle1Pos = Math.floor((40 - subtitle1.length) / 2);
+    const subtitle2Pos = Math.floor((40 - subtitle2.length) / 2);
 
-    await m.pos(10, 10);
-    await m.print("3 - Seine");
+    // Display subtitles with a space between title and subtitle
+    await m.pos(4, subtitle1Pos);
+    await m.print(subtitle1);
+    await m.pos(5, subtitle2Pos);
+    await m.print(subtitle2);
 
-    // Instructions
-    await m.pos(14, 5);
-    await m.print("Choisissez un service (1-3)");
-
-    await m.pos(16, 5);
-    await m.print("ou appuyez sur ENVOI");
+    // Display menu from programs object
+    let row = 8;
+    for (let i = 0; i < sortedKeys.length; i++) {
+      const key = sortedKeys[i];
+      await m.pos(row, 10);
+      await m.print(`${i + 1} - ${key}`);
+      row += 2;
+    }
   }
 
   // Display the welcome page
@@ -45,26 +54,40 @@ async function welcomePage(websocket) {
 
   // Handle user input
   while (true) {
-    const [input, key] = await m.input(20, 20, 1, "", " ", false);
+    // Display instruction on before last row (row 23) and position cursor right after
+    await m.pos(23, 2);
+    // Create a range string like "1-3" based on number of programs
+    const range = sortedKeys.length > 1 ? `1-${sortedKeys.length}` : "1";
+    const promptText = `selectionnez un programme (${range}): `;
+    await m.print(promptText);
 
-    if (key === m.envoi && !input) {
-      // Show message if ENVOI is pressed without a selection
-      await m.message(0, 1, 3, "Veuillez choisir un service (1-3)");
-    } else if (input === "1") {
-      // Redirect to annuaire service
+    // Get input at the position right after the prompt text
+    const [input, key] = await m.input(
+      23,
+      2 + promptText.length,
+      1,
+      "",
+      " ",
+      false
+    );
+
+    if (
+      key === m.envoi &&
+      input &&
+      parseInt(input) >= 1 &&
+      parseInt(input) <= sortedKeys.length
+    ) {
+      // Get the program key based on numeric input
+      const programKey = sortedKeys[parseInt(input) - 1];
+      // Redirect to selected program
       await m.cls();
-      await annuaire(websocket);
+      await programs[programKey](websocket);
       await displayWelcome();
-    } else if (input === "2") {
-      // Redirect to snake game
-      await m.cls();
-      await snakeGame(websocket);
-      await displayWelcome();
-    } else if (input === "3") {
-      // Redirect to seine artwork
-      await m.cls();
-      await seine(websocket);
-      await displayWelcome();
+    } else {
+      await m.message(0, 1, 2, "programme non valide");
+      // Clear the input zone
+      await m.del(23, 2 + promptText.length);
+      await m.pos(23, 2 + promptText.length);
     }
   }
 }
