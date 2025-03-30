@@ -1,5 +1,5 @@
 import { startServer } from "./server.js";
-import { Minitel, MinitelWS } from "./minitel.js";
+import { Minitel } from "./minitel.js";
 
 // Game constants
 const GAME_WIDTH = 21; // Nokia-style grid width
@@ -16,7 +16,7 @@ const FOOD = "*";
 const WALL = String.fromCharCode(0x7f);
 
 async function snakeGame(websocket) {
-  const m = new Minitel(new MinitelWS(websocket));
+  const m = new Minitel(websocket);
 
   let running = true;
   let score = 0;

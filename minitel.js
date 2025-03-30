@@ -3,11 +3,12 @@ import fs from "fs/promises";
 export class Minitel {
   /**
    * Class for managing videotex input/output with a Minitel
-   * @param {MinitelWS} conn - Connection to the Minitel
+   * @param {WebSocket} websocket - WebSocket connection
    */
-  constructor(conn) {
+  constructor(websocket) {
     this.ecrans = { last: null };
-    this.conn = conn;
+    this.ws = websocket;
+    this.buffer = "";
     this.lastkey = 0;
     this.lastscreen = "";
     this.laststar = false;
@@ -42,6 +43,48 @@ export class Minitel {
     this.PRO3 = "\x1b\x3b";
   }
 
+  // Private WebSocket methods
+  async #write(data) {
+    if (typeof data === "string") {
+      await this.ws.send(data);
+    } else {
+      // If data is a Uint8Array, convert it to a string
+      const dataStr = new TextDecoder().decode(data);
+      // Remove any 0xFF characters and everything after
+      const ffIndex = dataStr.indexOf("\xff");
+      const cleanData =
+        ffIndex > 0 ? dataStr.substring(0, ffIndex - 1) : dataStr;
+      await this.ws.send(cleanData);
+    }
+  }
+
+  async #read(maxlen = 1) {
+    if (this.buffer.length < maxlen) {
+      try {
+        // This assumes the WebSocket is set up to receive messages
+        // and store them in a way that can be accessed here
+        const data = await new Promise((resolve) => {
+          this.ws.onmessage = (event) => resolve(event.data);
+        });
+        this.buffer += data;
+      } catch (error) {
+        console.error("Error reading from WebSocket:", error);
+      }
+    }
+
+    let data = "";
+    if (this.buffer.length >= maxlen) {
+      data = this.buffer.substring(0, maxlen);
+      this.buffer = this.buffer.substring(maxlen);
+    }
+
+    return data;
+  }
+
+  #inWaiting() {
+    return this.buffer.length;
+  }
+
   /**
    * Wait for a connection
    */
@@ -49,7 +92,7 @@ export class Minitel {
     console.log("ATTENTE");
 
     // ESC received... we consider we are connected
-    while ((await this.conn.read(1)) !== " ") {
+    while ((await this.#read(1)) !== " ") {
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
@@ -60,28 +103,19 @@ export class Minitel {
    * End connection, hang up
    */
   async end() {
-    await this.conn.write("\x1b9g");
+    await this.#write("\x1b9g");
   }
 
   /**
    * Last character received
    */
   async if() {
-    const data = await this.conn.read(1);
+    const data = await this.#read(1);
     if (!data) {
       return null;
     } else {
       return data;
     }
-  }
-
-  /**
-   * Clear the reception buffer
-   */
-  clear() {
-    this.conn.settimeout(0); // 2 minute timeout for inputs...
-    // In JavaScript, we don't have a direct equivalent to recv(10000)
-    // This would be handled by the WebSocket implementation
   }
 
   /**
@@ -198,7 +232,7 @@ export class Minitel {
     }
     this.ecrans.last = num;
     if (num !== null) {
-      await this.conn.write(this.ecrans[num]);
+      await this.#write(this.ecrans[num]);
     }
   }
 
@@ -208,7 +242,7 @@ export class Minitel {
   async drawscreen(fichier) {
     try {
       const data = await fs.readFile(fichier);
-      await this.conn.write(data);
+      await this.#write(data);
     } catch (error) {
       console.error(`Error loading file ${fichier}:`, error);
     }
@@ -236,7 +270,7 @@ export class Minitel {
    * Return current input buffer content
    */
   async get() {
-    return await this.conn.read(this.conn.inWaiting());
+    return await this.#read(this.#inWaiting());
   }
 
   /**
@@ -276,7 +310,7 @@ export class Minitel {
     await this.sendchr(17); // Con
 
     while (true) {
-      const c = await this.conn.read(1);
+      const c = await this.#read(1);
       if (c === "") {
         continue;
       } else if (c === "\r") {
@@ -285,7 +319,7 @@ export class Minitel {
         return [data, this.envoi];
       } else if (c === "\x13") {
         // SEP so Minitel key...
-        const c2 = await this.conn.read(1);
+        const c2 = await this.#read(1);
 
         if (c2 === "\x45" && data !== "") {
           // cancellation
@@ -310,21 +344,21 @@ export class Minitel {
         }
       } else if (c === "\x1b") {
         // filtering protocol acknowledgments...
-        const c2 = await this.conn.read(1);
+        const c2 = await this.#read(1);
         const escSeq = c + c2;
         if (escSeq === this.PRO1) {
-          await this.conn.read(1);
+          await this.#read(1);
         } else if (escSeq === this.PRO2) {
-          await this.conn.read(2);
+          await this.#read(2);
         } else if (escSeq === this.PRO3) {
-          await this.conn.read(3);
+          await this.#read(3);
         }
       } else if (c === "\x16" || c === "\x19") {
         // accent...
         console.log("accent");
-        let accent = await this.conn.read(1);
+        let accent = await this.#read(1);
         if ("ABCHK".includes(accent)) {
-          accent += await this.conn.read(1);
+          accent += await this.#read(1);
         }
         const accents = {
           Aa: "à",
@@ -395,7 +429,6 @@ export class Minitel {
     }
     await this.pos(ligne, colonne);
     await this.print(message);
-    await this.conn.flush();
     await new Promise((resolve) => setTimeout(resolve, delai * 1000));
     await this.pos(ligne, colonne);
     await this.plot(" ", message.length);
@@ -588,7 +621,7 @@ export class Minitel {
   async xdraw(fichier) {
     try {
       const data = await fs.readFile(fichier);
-      await this.conn.write(data);
+      await this.#write(data);
     } catch (error) {
       console.error(`Error loading file ${fichier}:`, error);
     }
@@ -624,10 +657,10 @@ export class Minitel {
    * Send data to the minitel
    */
   async send(text) {
-    if (this.conn !== null) {
-      await this.conn.write(text);
+    if (this.ws !== null) {
+      await this.#write(text);
     } else {
-      console.log("conn = null");
+      console.log("ws = null");
     }
   }
 
@@ -698,86 +731,5 @@ export class Minitel {
     text = text.replace(/Ç/g, "C");
 
     return text;
-  }
-}
-
-export class MinitelWS {
-  /**
-   * @param {WebSocket} websocket - WebSocket connection
-   */
-  constructor(websocket) {
-    this.ws = websocket;
-    this.buffer = "";
-  }
-
-  /**
-   * Write data to the WebSocket
-   * @param {string|Uint8Array} data - Data to write
-   */
-  async write(data) {
-    if (typeof data === "string") {
-      await this.ws.send(data);
-    } else {
-      // If data is a Uint8Array, convert it to a string
-      const dataStr = new TextDecoder().decode(data);
-      // Remove any 0xFF characters and everything after
-      const ffIndex = dataStr.indexOf("\xff");
-      const cleanData =
-        ffIndex > 0 ? dataStr.substring(0, ffIndex - 1) : dataStr;
-      await this.ws.send(cleanData);
-    }
-  }
-
-  /**
-   * Read data from the WebSocket
-   * @param {number} maxlen - Maximum length to read
-   * @returns {Promise<string>} - Data read
-   */
-  async read(maxlen = 1) {
-    if (this.buffer.length < maxlen) {
-      try {
-        // This assumes the WebSocket is set up to receive messages
-        // and store them in a way that can be accessed here
-        const data = await new Promise((resolve) => {
-          this.ws.onmessage = (event) => resolve(event.data);
-        });
-        this.buffer += data;
-      } catch (error) {
-        console.error("Error reading from WebSocket:", error);
-      }
-    }
-
-    let data = "";
-    if (this.buffer.length >= maxlen) {
-      data = this.buffer.substring(0, maxlen);
-      this.buffer = this.buffer.substring(maxlen);
-    }
-
-    return data;
-  }
-
-  /**
-   * Get number of bytes waiting to be read
-   * @returns {number} - Number of bytes waiting
-   */
-  inWaiting() {
-    return this.buffer.length;
-  }
-
-  /**
-   * Set timeout for read operations
-   * @param {number} timeout - Timeout in seconds
-   */
-  settimeout(timeout) {
-    // Not implemented in JavaScript
-    return;
-  }
-
-  /**
-   * Flush the output buffer
-   */
-  async flush() {
-    // Not needed in WebSocket context
-    return;
   }
 }

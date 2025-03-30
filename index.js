@@ -1,4 +1,4 @@
-import { Minitel, MinitelWS } from "./minitel.js";
+import { Minitel } from "./minitel.js";
 import { startServer } from "./server.js";
 import { seine } from "./seine.js";
 
@@ -8,7 +8,7 @@ const programs = {
 
 // Welcome page handler
 async function welcomePage(websocket) {
-  const m = new Minitel(new MinitelWS(websocket));
+  const m = new Minitel(websocket);
 
   // Get sorted keys for alphabetical ordering
   const sortedKeys = Object.keys(programs).sort();

@@ -1,4 +1,4 @@
-import { Minitel, MinitelWS } from "./minitel.js";
+import { Minitel } from "./minitel.js";
 import { startServer } from "./server.js";
 
 // minitel version of 1951 artwork "seine" by kelly ellsworth
@@ -34,7 +34,7 @@ function randomInt(min, max, rand = Math.random) {
 }
 
 async function seine(websocket) {
-  const m = new Minitel(new MinitelWS(websocket));
+  const m = new Minitel(websocket);
 
   // Initial setup
   await m.home();

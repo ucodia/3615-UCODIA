@@ -1,6 +1,6 @@
 import fetch from "node-fetch";
 import * as cheerio from "cheerio";
-import { Minitel, MinitelWS } from "./minitel.js";
+import { Minitel } from "./minitel.js";
 import { startServer } from "./server.js";
 
 const annuaires = {
@@ -352,7 +352,7 @@ async function pageResultats(m, quoi, ou, res, annu = "") {
 }
 
 async function annuaire(websocket) {
-  const m = new Minitel(new MinitelWS(websocket));
+  const m = new Minitel(websocket);
 
   let annuQuoi = "";
   let annuOu = "";
