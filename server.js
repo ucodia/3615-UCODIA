@@ -1,11 +1,19 @@
 import { WebSocketServer } from "ws";
 import http from "http";
 import os from "os";
+import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
 
 export function startServer(serviceHandler, port, serviceName) {
   const host = "0.0.0.0"; // make accessible to LAN devices
-  const server = http.createServer();
+
+  const app = express();
+  const server = http.createServer(app);
   const wss = new WebSocketServer({ server });
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+  app.use(express.static(path.join(__dirname, "emulator")));
   wss.on("connection", serviceHandler);
 
   server.listen(port, host, () => {
@@ -28,9 +36,7 @@ export function startServer(serviceHandler, port, serviceName) {
     console.log("Available at:");
     console.log(` • Local:      ${localUrl}`);
     console.log(` • Network:    ${lanUrl}`);
-    console.log(
-      ` • Emulator:   https://www.minipavi.fr/emulminitel/indexws.php?url=${localUrl}`
-    );
+    console.log(` • Emulator:   http://localhost:${port}?url=${localUrl}`);
   });
 
   return { server, wss };

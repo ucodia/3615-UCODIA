@@ -1,9 +1,11 @@
 import { Minitel } from "./minitel.js";
 import { startServer } from "./server.js";
 import { seine } from "./seine.js";
+import { snakeGame } from "./snake.js";
 
 const programs = {
   seine: seine,
+  snake: snakeGame,
 };
 
 // Welcome page handler
