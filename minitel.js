@@ -24,6 +24,12 @@ export class Minitel {
     this.magenta = 5;
     this.cyan = 6;
     this.blanc = 7;
+    this.gris1 = 4;
+    this.gris2 = 1;
+    this.gris3 = 5;
+    this.gris4 = 2;
+    this.gris5 = 6;
+    this.gris6 = 3;
 
     // Function key constants for Minitel
     // in Videotex or Mixed mode

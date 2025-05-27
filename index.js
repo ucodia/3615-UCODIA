@@ -1,11 +1,8 @@
 import { Minitel } from "./minitel.js";
 import { startServer } from "./server.js";
-import { seine } from "./seine.js";
-import { snakeGame } from "./snake.js";
-
+import { sliceExhibits } from "./slice/slice.js";
 const programs = {
-  seine: seine,
-  snake: snakeGame,
+  "upcoming exhibits": sliceExhibits,
 };
 
 // Welcome page handler
@@ -24,12 +21,12 @@ async function welcomePage(websocket) {
     await m.pos(2, 13);
     await m.color(m.noir);
     await m.backcolor(m.blanc);
-    await m.print(" 3615 UCODIA ");
+    await m.print(" 3615 SLICE ");
     await m.normal();
 
     // Display subtitle on two lines, centered
-    const subtitle1 = "galerie d'art génératif";
-    const subtitle2 = "sur minitel";
+    const subtitle1 = "your slice of life news";
+    const subtitle2 = "on minitel";
 
     // Calculate center positions (screen is 40 columns wide)
     const subtitle1Pos = Math.floor((40 - subtitle1.length) / 2);
@@ -60,7 +57,7 @@ async function welcomePage(websocket) {
     await m.pos(23, 2);
     // Create a range string like "1-3" based on number of programs
     const range = sortedKeys.length > 1 ? `1-${sortedKeys.length}` : "1";
-    const promptText = `selectionnez un programme (${range}): `;
+    const promptText = `select a program (${range}): `;
     await m.print(promptText);
 
     // Get input at the position right after the prompt text
@@ -86,7 +83,7 @@ async function welcomePage(websocket) {
       await programs[programKey](websocket);
       await displayWelcome();
     } else {
-      await m.message(0, 1, 2, "programme non valide");
+      await m.message(0, 1, 2, "invald program");
       // Clear the input zone
       await m.del(23, 2 + promptText.length);
       await m.pos(23, 2 + promptText.length);
