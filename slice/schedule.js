@@ -3,7 +3,7 @@ import axios from "axios";
 const BASE_URL =
   "https://cdn5.editmysite.com/app/store/api/v28/editor/users/137962747/sites/821974950840857745/products";
 const WORKSHOP_URL = `${BASE_URL}?per_page=200&categories[]=IPSBNDZZVKKKFGAXTKHXENOG`;
-const SHOWS_URL = `${BASE_URL}?per_page=200&categories[]=MMDIM4KVPD4DWPWJFHWGKFDA`;
+const EXHIBITS_URL = `${BASE_URL}?per_page=200&categories[]=MMDIM4KVPD4DWPWJFHWGKFDA`;
 
 function extractDateFromTitle(title) {
   const months = {
@@ -95,6 +95,6 @@ export async function getWorkshops() {
   return await getEvents(WORKSHOP_URL);
 }
 
-export async function getShows() {
-  return await getEvents(SHOWS_URL);
+export async function getExhibits() {
+  return await getEvents(EXHIBITS_URL);
 }

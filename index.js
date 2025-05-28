@@ -1,8 +1,11 @@
 import { Minitel } from "./minitel.js";
 import { startServer } from "./server.js";
-import { sliceExhibits } from "./slice/slice.js";
+import { sliceExhibits, sliceWorkshops } from "./slice/slice.js";
+import { annuaire } from "./annuaire.js";
 const programs = {
-  "upcoming exhibits": sliceExhibits,
+  "exhibits calendar": sliceExhibits,
+  "workshops calendar": sliceWorkshops,
+  // annuaire: annuaire,
 };
 
 // Welcome page handler
