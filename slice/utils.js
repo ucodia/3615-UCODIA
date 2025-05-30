@@ -64,6 +64,7 @@ async function getEvents(URL) {
   try {
     const response = await axios.get(URL);
     const products = response.data.data;
+    const now = new Date();
 
     const events = products
       .map((product) => {
@@ -82,7 +83,9 @@ async function getEvents(URL) {
           rawTitle: product.name,
         };
       })
-      .filter((event) => event !== null);
+      .filter((event) => event !== null)
+      .filter((event) => new Date(event.date) >= now)
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
 
     return events;
   } catch (error) {

@@ -1,22 +1,26 @@
 import { Minitel } from "./minitel.js";
 import { startServer } from "./server.js";
-import { sliceExhibits, sliceWorkshops } from "./slice/slice.js";
-import { annuaire } from "./annuaire.js";
-const programs = {
-  "exhibits calendar": sliceExhibits,
-  "workshops calendar": sliceWorkshops,
-  // annuaire: annuaire,
-};
+import { sliceExhibits } from "./slice/exhibits.js";
+import { sliceWorkshops } from "./slice/workshops.js";
+import { omeletteFacts } from "./slice/omelette.js";
+
+const programs = [
+  { title: "exhibits calendar", handoff: sliceExhibits },
+  { title: "workshops calendar", handoff: sliceWorkshops },
+  { title: "omelette facts", handoff: omeletteFacts },
+];
 
 // Welcome page handler
 async function welcomePage(websocket) {
   const m = new Minitel(websocket);
 
-  // Get sorted keys for alphabetical ordering
-  const sortedKeys = Object.keys(programs).sort();
-
   // Function to display the welcome page
   async function displayWelcome() {
+    await m.home();
+    await m.cls();
+    // await m.xdraw("slice/intro.vdt");
+    // await new Promise((resolve) => setTimeout(resolve, 10 * 1000));
+
     await m.home();
     await m.cls();
 
@@ -43,10 +47,10 @@ async function welcomePage(websocket) {
 
     // Display menu from programs object
     let row = 8;
-    for (let i = 0; i < sortedKeys.length; i++) {
-      const key = sortedKeys[i];
+    for (let i = 0; i < programs.length; i++) {
+      const key = programs[i];
       await m.pos(row, 10);
-      await m.print(`${i + 1} - ${key}`);
+      await m.print(`${i + 1} - ${key.title}`);
       row += 2;
     }
   }
@@ -59,7 +63,7 @@ async function welcomePage(websocket) {
     // Display instruction on before last row (row 23) and position cursor right after
     await m.pos(23, 2);
     // Create a range string like "1-3" based on number of programs
-    const range = sortedKeys.length > 1 ? `1-${sortedKeys.length}` : "1";
+    const range = programs.length > 1 ? `1-${programs.length}` : "1";
     const promptText = `select a program (${range}): `;
     await m.print(promptText);
 
@@ -77,17 +81,14 @@ async function welcomePage(websocket) {
       key === m.envoi &&
       input &&
       parseInt(input) >= 1 &&
-      parseInt(input) <= sortedKeys.length
+      parseInt(input) <= programs.length
     ) {
-      // Get the program key based on numeric input
-      const programKey = sortedKeys[parseInt(input) - 1];
-      // Redirect to selected program
+      const programIndex = parseInt(input) - 1;
       await m.cls();
-      await programs[programKey](websocket);
+      await programs[programIndex].handoff(websocket);
       await displayWelcome();
     } else {
-      await m.message(0, 1, 2, "invald program");
-      // Clear the input zone
+      await m.message(0, 1, 2, "invalid program");
       await m.del(23, 2 + promptText.length);
       await m.pos(23, 2 + promptText.length);
     }
