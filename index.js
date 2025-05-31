@@ -18,7 +18,7 @@ async function welcomePage(websocket) {
   async function displayWelcome() {
     await m.home();
     await m.cls();
-    // await m.xdraw("slice/intro.vdt");
+    await m.xdraw("screens/intro.vdt");
     // await new Promise((resolve) => setTimeout(resolve, 10 * 1000));
 
     await m.home();
@@ -97,7 +97,7 @@ async function welcomePage(websocket) {
 
 // Start the welcome page server
 (async function () {
-  startServer(welcomePage, 3615, "Welcome Page");
+  startServer(omeletteFacts, 3615, "Welcome Page");
 })().catch((err) => {
   console.error("Server error:", err);
   process.exit(1);

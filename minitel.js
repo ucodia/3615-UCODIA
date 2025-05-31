@@ -659,15 +659,24 @@ export class Minitel {
     await this.send(this.accents(texte));
   }
 
+  async printblock(ligne, colonne, largeur, texte, hyphenation = true) {
+    const accentedText = this.accents(texte);
+    let remainingText = accentedText;
+    let currentLine = ligne;
+
+    while (remainingText.length > 0) {
+      await this.pos(currentLine, colonne);
+      await this.send(remainingText.substring(0, largeur));
+      remainingText = remainingText.substring(largeur);
+      currentLine++;
+    }
+  }
+
   /**
    * Send data to the minitel
    */
   async send(text) {
-    if (this.ws !== null) {
-      await this.#write(text);
-    } else {
-      console.log("ws = null");
-    }
+    await this.#write(text);
   }
 
   /**

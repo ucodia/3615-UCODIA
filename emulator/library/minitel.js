@@ -4838,7 +4838,9 @@ Minitel.Emulator = class {
     this.bandwidth = -1;
 
     // Sets colors
-    this.setColor(color ?? container.getAttribute("data-color") ?? false);
+    this.setColor(
+      color ?? container.getAttribute("data-color") === "true" ?? false
+    );
 
     // Sets speed
     this.setRefresh(
