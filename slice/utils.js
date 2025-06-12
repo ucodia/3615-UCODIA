@@ -42,7 +42,7 @@ function extractDateFromTitle(title) {
     const month = months[monthDayMatch[1].toLowerCase()];
     const day = parseInt(monthDayMatch[2]);
     if (month && day) {
-      return { year, month, day };
+      return new Date(year, month - 1, day);
     }
   }
 
@@ -60,6 +60,18 @@ function extractNameFromTitle(title) {
   return name.trim();
 }
 
+function formatDate(date) {
+  const options = { weekday: "long", month: "long", day: "numeric" };
+  return date
+    .toLocaleDateString("en-US", options)
+    .replace(/\b(\d{1,2})(?=\b)/, (match) => {
+      const suffix = ["th", "st", "nd", "rd"][
+        match % 10 > 3 || Math.floor((match % 100) / 10) === 1 ? 0 : match % 10
+      ];
+      return match + suffix;
+    });
+}
+
 async function getEvents(URL) {
   try {
     const response = await axios.get(URL);
@@ -73,9 +85,8 @@ async function getEvents(URL) {
 
         return {
           name: extractNameFromTitle(product.name),
-          date: `${date.year}-${String(date.month).padStart(2, "0")}-${String(
-            date.day
-          ).padStart(2, "0")}`,
+          date: date,
+          displayDate: formatDate(date),
           description: product.short_description,
           link: product.absolute_site_link,
           price: product.price.low,
@@ -84,7 +95,7 @@ async function getEvents(URL) {
         };
       })
       .filter((event) => event !== null)
-      .filter((event) => new Date(event.date) >= now)
+      .filter((event) => new Date(event.date) >= new Date("2025-06-12"))
       .sort((a, b) => new Date(a.date) - new Date(b.date));
 
     return events;

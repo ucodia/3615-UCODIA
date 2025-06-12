@@ -6,19 +6,6 @@ async function sliceWorkshops(websocket) {
   await displayWorkshopSchedule(m);
 }
 
-function formatDate(dateString) {
-  const date = new Date(dateString);
-  const options = { weekday: "long", month: "long", day: "numeric" };
-  return date
-    .toLocaleDateString("en-US", options)
-    .replace(/\b(\d{1,2})(?=\b)/, (match) => {
-      const suffix = ["th", "st", "nd", "rd"][
-        match % 10 > 3 || Math.floor((match % 100) / 10) === 1 ? 0 : match % 10
-      ];
-      return match + suffix;
-    });
-}
-
 async function displayWorkshopSchedule(m) {
   const events = await getWorkshops();
 
@@ -59,7 +46,7 @@ async function displayWorkshopSchedule(m) {
         // date
         await m.pos(lineBegin, 4);
         await m.color(m.vert);
-        await m.print(`${formatDate(event.date)}`);
+        await m.print(`${event.displayDate}`);
 
         // price / availability
         if (event.quantity === 0) {
