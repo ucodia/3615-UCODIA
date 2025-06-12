@@ -12,9 +12,8 @@ async function displayOmeletteFacts(m) {
     await m.home();
 
     // header
-    // await m.dr
-    // await m.xdraw("screens/omelette-small.vdt");
-    await m.pos(1, 8);
+    await m.xdraw("screens/omelette-small.vdt");
+    await m.pos(1, 9);
     await m.color(m.jaune);
     await m.print(`FUN FACTS ABOUT OMELETTE!`);
     await m.pos(2);
@@ -37,13 +36,33 @@ async function displayOmeletteFacts(m) {
       19,
       "- She loves watching camping channels on YouTube"
     );
+    await m.printblock(
+      10,
+      21,
+      19,
+      "- She visits the highschool everyday where she gets special classroom treats"
+    );
+    await m.printblock(
+      15,
+      21,
+      19,
+      "- Contrary to popular belief, she is the actual Slice CEO"
+    );
 
     // footer line
-    await m.pos(22);
+    await m.pos(23);
     await m.color(m.jaune);
     await m.plot("̶", 40);
 
     // footer menu
+    await m.pos(24, 22);
+    await m.color(m.vert);
+    await m.print("close up →");
+    await m.underline();
+    await m.print(" ");
+    await m.inverse();
+    await m.color(m.cyan);
+    await m.print("_SUITE  ");
     await m.pos(24, 1);
     await m.color(m.vert);
     await m.print("main menu → ");
@@ -78,37 +97,29 @@ async function displayFullscreenOmelette(m) {
     await m.home();
 
     // header
-    await m.xdraw("screens/omelette-small.vdt");
+    await m.xdraw("screens/omelette-large.vdt");
 
     // footer line
-    await m.pos(22);
-    await m.color(m.jaune);
-    await m.plot("̶", 40);
+    // await m.pos(22);
+    // await m.color(m.jaune);
+    // await m.plot("̶", 40);
 
     // footer menu
-    await m.pos(24, 1);
-    await m.color(m.vert);
-    await m.print("main menu → ");
+    await m.pos(24, 32);
+    await m.underline();
+    await m.print(" ");
     await m.inverse();
     await m.color(m.cyan);
-    await m.print("SOMMAIRE");
+    await m.print("_RETOUR ");
 
     const [choix, key] = await m.input(0, 1, 0, "");
     lastKey = key;
 
     await m.cursor(false);
     if (key === m.suite) {
-      if (page + 1 < pageTotal) {
-        page++;
-      } else {
-        await m.bip();
-      }
+      await m.bip();
     } else if (key === m.retour) {
-      if (page > 0) {
-        page--;
-      } else {
-        await m.bip();
-      }
+      break;
     } else if (key === m.sommaire) {
       break;
     } else if (key === m.correction) {
