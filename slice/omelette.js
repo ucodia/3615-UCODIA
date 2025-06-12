@@ -29,21 +29,21 @@ async function displayOmeletteFacts(m) {
     await m.print("Sign:  Scorpio");
     await m.pos(20, 3);
     await m.print("Style: Orange");
-    await m.printblock(3, 21, 19, "- Her birthname is Flower");
+    await m.printblock(4, 21, 19, "- Her birthname is Flower");
     await m.printblock(
-      6,
+      7,
       21,
       19,
       "- She loves watching camping channels on YouTube"
     );
     await m.printblock(
-      10,
+      11,
       21,
       19,
       "- She visits the highschool everyday where she gets special classroom treats"
     );
     await m.printblock(
-      15,
+      16,
       21,
       19,
       "- Contrary to popular belief, she is the actual Slice CEO"
