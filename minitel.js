@@ -1,4 +1,8 @@
 import fs from "fs/promises";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export class Minitel {
   /**
@@ -247,7 +251,7 @@ export class Minitel {
    */
   async drawscreen(fichier) {
     try {
-      const data = await fs.readFile(fichier);
+      const data = await fs.readFile(join(__dirname, fichier));
       await this.#write(data);
     } catch (error) {
       console.error(`Error loading file ${fichier}:`, error);
@@ -626,7 +630,7 @@ export class Minitel {
    */
   async xdraw(fichier) {
     try {
-      const data = await fs.readFile(fichier);
+      const data = await fs.readFile(join(__dirname, fichier));
       await this.#write(data);
     } catch (error) {
       console.error(`Error loading file ${fichier}:`, error);
@@ -638,7 +642,7 @@ export class Minitel {
    */
   async load(num, fichier) {
     try {
-      const data = await fs.readFile(fichier);
+      const data = await fs.readFile(join(__dirname, fichier));
       this.ecrans[num] = data;
     } catch (error) {
       console.error(`Error loading file ${fichier}:`, error);
