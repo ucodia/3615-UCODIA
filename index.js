@@ -3,11 +3,13 @@ import { startServer } from "./server.js";
 import { sliceExhibits } from "./slice/exhibits.js";
 import { sliceWorkshops } from "./slice/workshops.js";
 import { omeletteFacts } from "./slice/omelette.js";
+import { seine } from "./seine.js";
 
 const programs = [
   { title: "exhibits calendar", handoff: sliceExhibits },
   { title: "workshops calendar", handoff: sliceWorkshops },
   { title: "omelette facts", handoff: omeletteFacts },
+  { title: "???", handoff: seine },
 ];
 
 // Welcome page handler
@@ -26,7 +28,7 @@ async function welcomePage(websocket) {
     await m.xdraw("screens/slice.vdt");
 
     // content
-    let row = 16;
+    let row = 15;
     for (let i = 0; i < programs.length; i++) {
       const key = programs[i];
       await m.pos(row, 2);
