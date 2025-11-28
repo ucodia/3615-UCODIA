@@ -36,7 +36,7 @@ export function startServer(serviceHandler, port, serviceName) {
     console.log("Available at:");
     console.log(` • Local:      ${localUrl}`);
     console.log(` • Network:    ${lanUrl}`);
-    console.log(` • Emulator:   http://localhost:${port}?url=${localUrl}`);
+    console.log(` • Emulator:   http://localhost:${port}`);
   });
 
   return { server, wss };

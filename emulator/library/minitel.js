@@ -4746,10 +4746,17 @@ Minitel.Emulator = class {
      * @member {Socket}
      */
     const urlParams = new URLSearchParams(window.location.search);
-    const socketURL =
+    let socketURL =
       urlParams.get("url") ||
       container.getAttribute("data-socket") ||
       undefined;
+    if (
+      !socketURL &&
+      (location.protocol === "https:" || location.protocol === "http:")
+    ) {
+      const proto = location.protocol === "https:" ? "wss:" : "ws:";
+      socketURL = `${proto}//${location.host}`;
+    }
     this.socket = socketURL ? new WebSocket(socketURL) : undefined;
 
     if (this.socket) {
