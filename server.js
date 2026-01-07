@@ -13,8 +13,47 @@ export function startServer(serviceHandler, port, serviceName) {
   const wss = new WebSocketServer({ server });
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+  app.use((req, res, next) => {
+    console.log(
+      `${new Date().toISOString()} - [HTTP] ${req.method} ${req.path} - ${
+        req.ip || req.socket.remoteAddress
+      }`
+    );
+    next();
+  });
+
   app.use(express.static(path.join(__dirname, "emulator")));
-  wss.on("connection", serviceHandler);
+
+  wss.on("connection", (ws, req) => {
+    const clientIp = req.socket.remoteAddress;
+    const clientPort = req.socket.remotePort;
+
+    console.log(
+      `${new Date().toISOString()} - [WS] Connection - ${clientIp}:${clientPort} - Total clients: ${
+        wss.clients.size
+      }`
+    );
+    ws.on("close", () => {
+      console.log(
+        `${new Date().toISOString()} - [WS] Disconnection - ${clientIp}:${clientPort} - Total clients: ${
+          wss.clients.size
+        }`
+      );
+    });
+    ws.on("error", (error) => {
+      console.error(`${new Date().toISOString()} - [WS] Error:`, error.message);
+    });
+
+    serviceHandler(ws);
+  });
+
+  wss.on("error", (error) => {
+    console.error(`${new Date().toISOString()} - [WS] Error:`, error);
+  });
+
+  server.on("error", (error) => {
+    console.error(`${new Date().toISOString()} [HTTP] Error:`, error);
+  });
 
   server.listen(port, host, () => {
     const networkInterfaces = os.networkInterfaces();
