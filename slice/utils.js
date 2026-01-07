@@ -1,76 +1,11 @@
 import axios from "axios";
+import { parse, format } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
 
 const BASE_URL =
   "https://cdn5.editmysite.com/app/store/api/v28/editor/users/137962747/sites/821974950840857745/products";
 const WORKSHOP_URL = `${BASE_URL}?per_page=200&categories[]=IPSBNDZZVKKKFGAXTKHXENOG`;
 const EXHIBITS_URL = `${BASE_URL}?per_page=200&categories[]=MMDIM4KVPD4DWPWJFHWGKFDA`;
-
-function extractDateFromTitle(title) {
-  const months = {
-    january: 1,
-    jan: 1,
-    february: 2,
-    feb: 2,
-    march: 3,
-    mar: 3,
-    april: 4,
-    apr: 4,
-    may: 5,
-    june: 6,
-    jun: 6,
-    july: 7,
-    jul: 7,
-    august: 8,
-    aug: 8,
-    september: 9,
-    sep: 9,
-    october: 10,
-    oct: 10,
-    november: 11,
-    nov: 11,
-    december: 12,
-    dec: 12,
-  };
-
-  // First try to find a year in the title
-  const yearMatch = title.match(/20\d{2}/);
-  const year = yearMatch ? parseInt(yearMatch[0]) : new Date().getFullYear();
-
-  // Try to match "MONTH DAY" format
-  const monthDayMatch = title.match(/([A-Za-z]+)\s+(\d{1,2})/i);
-  if (monthDayMatch) {
-    const month = months[monthDayMatch[1].toLowerCase()];
-    const day = parseInt(monthDayMatch[2]);
-    if (month && day) {
-      return new Date(year, month - 1, day);
-    }
-  }
-
-  return null;
-}
-
-function extractNameFromTitle(title) {
-  // Remove date patterns from the title
-  let name = title
-    // Remove "MONTH DAY" pattern
-    .replace(/[A-Za-z]+\s+\d{1,2}\s+-\s+/, "")
-    // Clean up any remaining dashes at the start
-    .replace(/^\s*-\s*/, "");
-
-  return name.trim();
-}
-
-function formatDate(date) {
-  const options = { weekday: "long", month: "long", day: "numeric" };
-  return date
-    .toLocaleDateString("en-US", options)
-    .replace(/\b(\d{1,2})(?=\b)/, (match) => {
-      const suffix = ["th", "st", "nd", "rd"][
-        match % 10 > 3 || Math.floor((match % 100) / 10) === 1 ? 0 : match % 10
-      ];
-      return match + suffix;
-    });
-}
 
 async function getEvents(URL) {
   try {
@@ -79,14 +14,26 @@ async function getEvents(URL) {
     const now = new Date();
 
     const events = products
+      // filter non-events
+      .filter((product) => product.product_type_details?.start_date)
       .map((product) => {
-        const date = extractDateFromTitle(product.name);
-        if (!date) return null;
+        // sample event details
+        // "name": "JANUARY 1 - OPENING NIGHT with @xyz",
+        // "product_type_details": {
+        //   "start_date": "2026-02-17",
+        //   "start_time": "7:00 PM",
+        //   "timezone": "America/Los_Angeles",
+        // }
+
+        const details = product.product_type_details;
+        const dateTimeString = `${details.start_date} ${details.start_time}`;
+        const date = parse(dateTimeString, "yyyy-MM-dd hh:mm aaa", new Date());
+        const zonedDate = toZonedTime(date, details.timezone);
 
         return {
-          name: extractNameFromTitle(product.name),
-          date: date,
-          displayDate: formatDate(date),
+          name: product.name.split(" - ")[1]?.trim(),
+          date: zonedDate,
+          displayDate: format(zonedDate, "EEE, MMMM do, h:mm a"),
           description: product.short_description,
           link: product.absolute_site_link,
           price: product.price.low,
@@ -94,8 +41,12 @@ async function getEvents(URL) {
           rawTitle: product.name,
         };
       })
-      .filter((event) => event !== null)
-      .filter((event) => new Date(event.date) >= new Date("2025-06-12"))
+      // filter events more than 1 week past
+      .filter(
+        (event) =>
+          event.date >= new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      )
+      // sort by date ascending
       .sort((a, b) => new Date(a.date) - new Date(b.date));
 
     return events;
