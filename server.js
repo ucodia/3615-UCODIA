@@ -5,6 +5,14 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 
+function getClientIp(req) {
+  return (
+    req.headers["cf-connecting-ip"] ||
+    req.headers["x-forwarded-for"]?.split(",")[0] ||
+    req.socket.remoteAddress
+  );
+}
+
 export function startServer(serviceHandler, port, serviceName) {
   const host = "0.0.0.0"; // make accessible to LAN devices
 
@@ -15,9 +23,9 @@ export function startServer(serviceHandler, port, serviceName) {
 
   app.use((req, res, next) => {
     console.log(
-      `${new Date().toISOString()} - [HTTP] ${req.method} ${req.path} - ${
-        req.ip || req.socket.remoteAddress
-      }`
+      `${new Date().toISOString()} - [HTTP] ${req.method} ${
+        req.path
+      } - ${getClientIp(req)}`
     );
     next();
   });
@@ -29,15 +37,15 @@ export function startServer(serviceHandler, port, serviceName) {
     const clientPort = req.socket.remotePort;
 
     console.log(
-      `${new Date().toISOString()} - [WS] Connection - ${clientIp}:${clientPort} - Total clients: ${
-        wss.clients.size
-      }`
+      `${new Date().toISOString()} - [WS] Connection - ${getClientIp(
+        req
+      )} - Total clients: ${wss.clients.size}`
     );
     ws.on("close", () => {
       console.log(
-        `${new Date().toISOString()} - [WS] Disconnection - ${clientIp}:${clientPort} - Total clients: ${
-          wss.clients.size
-        }`
+        `${new Date().toISOString()} - [WS] Disconnection - ${getClientIp(
+          req
+        )} - Total clients: ${wss.clients.size}`
       );
     });
     ws.on("error", (error) => {
