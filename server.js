@@ -41,18 +41,35 @@ export function startServer(serviceHandler, port, serviceName) {
       );
     });
     ws.on("error", (error) => {
-      console.error(`${new Date().toISOString()} - [WS] Error:`, error.message);
+      console.error(
+        `${new Date().toISOString()} - [WS] Error: ${error.message}`
+      );
     });
 
     serviceHandler(ws);
   });
 
+  const interval = setInterval(() => {
+    console.log(
+      `${new Date().toISOString()} - [WS] Sending ping to ${
+        wss.clients.size
+      } clients`
+    );
+    wss.clients.forEach((ws) => {
+      ws.ping();
+    });
+  }, 60000);
+
+  wss.on("close", () => {
+    clearInterval(interval);
+  });
+
   wss.on("error", (error) => {
-    console.error(`${new Date().toISOString()} - [WS] Error:`, error);
+    console.error(`${new Date().toISOString()} - [WS] Error: ${error}`);
   });
 
   server.on("error", (error) => {
-    console.error(`${new Date().toISOString()} [HTTP] Error:`, error);
+    console.error(`${new Date().toISOString()} [HTTP] Error: ${error}`);
   });
 
   server.listen(port, host, () => {
