@@ -1,4 +1,5 @@
 import { Minitel } from "../minitel.js";
+import logger from "../logger.js";
 
 async function omeletteFacts(websocket) {
   const m = new Minitel(websocket);
@@ -9,6 +10,7 @@ async function displayOmeletteFacts(m) {
   let lastKey = 0;
 
   while (true) {
+    logger.info("Navigating to omelette facts page");
     await m.home();
 
     // header
@@ -94,6 +96,7 @@ async function displayFullscreenOmelette(m) {
   let lastKey = 0;
 
   while (true) {
+    logger.info("Navigating to fullscreen omelette page");
     await m.home();
 
     // header

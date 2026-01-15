@@ -4,6 +4,7 @@ import { sliceExhibits } from "./slice/exhibits.js";
 import { sliceWorkshops } from "./slice/workshops.js";
 import { omeletteFacts } from "./slice/omelette.js";
 import { seine } from "./seine.js";
+import logger from "./logger.js";
 
 const programs = [
   { title: "exhibits calendar", handoff: sliceExhibits },
@@ -18,11 +19,7 @@ async function welcomePage(websocket) {
 
   // Function to display the welcome page
   async function displayWelcome() {
-    await m.home();
-    await m.cls();
-    // await m.xdraw("screens/intro.vdt");
-    // await new Promise((resolve) => setTimeout(resolve, 10 * 1000));
-
+    logger.info("Navigating to welcome page");
     await m.home();
     await m.cls();
     await m.xdraw("screens/slice.vdt");
@@ -79,7 +76,7 @@ async function welcomePage(websocket) {
 
 // Start the welcome page server
 (async function () {
-  startServer(welcomePage, 3615, "Welcome Page");
+  startServer(welcomePage, 3615);
 })().catch((err) => {
   console.error("Server error:", err);
   process.exit(1);

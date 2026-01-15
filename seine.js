@@ -1,5 +1,6 @@
 import { Minitel } from "./minitel.js";
 import { startServer } from "./server.js";
+import logger from "./logger.js";
 
 // minitel version of 1951 artwork "seine" by kelly ellsworth
 // made by lionel ringenbach / @ucodia
@@ -35,6 +36,8 @@ function randomInt(min, max, rand = Math.random) {
 
 async function seine(websocket) {
   const m = new Minitel(websocket);
+
+  logger.info("Navigating to Seine page");
 
   // Initial setup
   await m.home();
@@ -87,7 +90,7 @@ async function displayArtwork(m) {
 // Only start the server if this file is run directly
 if (import.meta.url === `file://${process.argv[1]}`) {
   (async function () {
-    startServer((ws) => seine(ws), 3613, "Seine");
+    startServer((ws) => seine(ws), 3613);
   })().catch((err) => {
     console.error("Server error:", err);
     process.exit(1);

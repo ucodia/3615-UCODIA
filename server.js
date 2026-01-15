@@ -1,9 +1,9 @@
-import { WebSocketServer } from "ws";
-import http from "http";
-import os from "os";
 import express from "express";
+import http from "http";
 import path from "path";
 import { fileURLToPath } from "url";
+import { WebSocketServer } from "ws";
+import logger from "./logger.js";
 
 function getClientIp(req) {
   return (
@@ -13,56 +13,38 @@ function getClientIp(req) {
   );
 }
 
-export function startServer(serviceHandler, port, serviceName) {
-  const host = "0.0.0.0"; // make accessible to LAN devices
-
+export function startServer(serviceHandler, port) {
   const app = express();
   const server = http.createServer(app);
   const wss = new WebSocketServer({ server });
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
   app.use((req, res, next) => {
-    console.log(
-      `${new Date().toISOString()} - [HTTP] ${req.method} ${
-        req.path
-      } - ${getClientIp(req)}`
-    );
+    logger.info(`[HTTP] ${req.method} ${req.path} - ${getClientIp(req)}`);
     next();
   });
 
   app.use(express.static(path.join(__dirname, "emulator")));
 
-  wss.on("connection", (ws, req) => {
-    const clientIp = req.socket.remoteAddress;
-    const clientPort = req.socket.remotePort;
+  app.use((req, res) => {
+    logger.warn(`[HTTP] 404 Not Found - ${req.method} ${req.path} - ${getClientIp(req)}`);
+    res.status(404).send("Not Found");
+  });
 
-    console.log(
-      `${new Date().toISOString()} - [WS] Connection - ${getClientIp(
-        req
-      )} - Total clients: ${wss.clients.size}`
-    );
+  wss.on("connection", (ws, req) => {
+    logger.info(`[WS] New client connected with IP ${getClientIp(req)} - Total clients: ${wss.clients.size}`);
     ws.on("close", () => {
-      console.log(
-        `${new Date().toISOString()} - [WS] Disconnection - ${getClientIp(
-          req
-        )} - Total clients: ${wss.clients.size}`
-      );
+      logger.info(`[WS] Client disconnected with IP ${getClientIp(req)} - Total clients: ${wss.clients.size}`);
     });
     ws.on("error", (error) => {
-      console.error(
-        `${new Date().toISOString()} - [WS] Error: ${error.message}`
-      );
+      logger.error(`[WS] Error: ${error.message}`);
     });
 
-    serviceHandler(ws);
+    serviceHandler(ws, req);
   });
 
   const interval = setInterval(() => {
-    console.log(
-      `${new Date().toISOString()} - [WS] Sending ping to ${
-        wss.clients.size
-      } clients`
-    );
+    logger.debug(`[WS] Sending ping to ${wss.clients.size} clients`);
     wss.clients.forEach((ws) => {
       ws.ping();
     });
@@ -73,34 +55,16 @@ export function startServer(serviceHandler, port, serviceName) {
   });
 
   wss.on("error", (error) => {
-    console.error(`${new Date().toISOString()} - [WS] Error: ${error}`);
+    logger.error(`[WS] Error: ${error}`);
   });
 
   server.on("error", (error) => {
-    console.error(`${new Date().toISOString()} [HTTP] Error: ${error}`);
+    logger.error(`[HTTP] Error: ${error}`);
   });
 
-  server.listen(port, host, () => {
-    const networkInterfaces = os.networkInterfaces();
-    let localIp = "localhost";
-
-    // Find the local IP address
-    Object.keys(networkInterfaces).forEach((ifname) => {
-      networkInterfaces[ifname].forEach((iface) => {
-        if (iface.family === "IPv4" && !iface.internal) {
-          localIp = iface.address;
-        }
-      });
-    });
-
-    const localUrl = `ws://localhost:${port}`;
-    const lanUrl = `ws://${localIp}:${port}`;
-
-    console.log(`${serviceName} WebSocket server started!`);
-    console.log("Available at:");
-    console.log(` • Local:      ${localUrl}`);
-    console.log(` • Network:    ${lanUrl}`);
-    console.log(` • Emulator:   http://localhost:${port}`);
+  server.listen(port, () => {
+    logger.info(`WebSocket server started at: ws://localhost:${port}`);
+    logger.info(`Emulator server started at: http://localhost:${port}`);
   });
 
   return { server, wss };

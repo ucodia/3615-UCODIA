@@ -1,5 +1,6 @@
 import { Minitel } from "../minitel.js";
 import { getWorkshops } from "./utils.js";
+import logger from "../logger.js";
 
 async function sliceWorkshops(websocket) {
   const m = new Minitel(websocket);
@@ -17,6 +18,7 @@ async function displayWorkshopSchedule(m) {
 
   while (true) {
     if (!skipFrame) {
+      logger.info(`Navigating to workshop schedule page ${page + 1}`);
       const pageEvents = events.slice(page * perPage, (page + 1) * perPage);
       await m.home();
 
@@ -31,7 +33,6 @@ async function displayWorkshopSchedule(m) {
       for (let i = 0; i < pageEvents.length; i++) {
         const lineBegin = 3 + i * 4;
         const event = pageEvents[i];
-        // console.log(`event: ${JSON.stringify(event, null, 2)}`);
 
         // page index
         await m.pos(1, 36);
