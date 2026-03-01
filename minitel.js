@@ -46,6 +46,7 @@ export class Minitel {
     this.correction = 7;
     this.suite = 8;
     this.connexionfin = 9;
+    this.rejectedPrintable = -1;
 
     // Protocol sequence constants
     this.PRO1 = "\x1b\x39";
@@ -307,7 +308,8 @@ export class Minitel {
     longueur,
     data = "",
     caractere = ".",
-    redraw = true
+    redraw = true,
+    returnRejectedPrintable = false,
   ) {
     // Initial display
     if (redraw) {
@@ -324,7 +326,7 @@ export class Minitel {
       if (c === "") {
         continue;
       } else if (c === "\r") {
-        // CR -> ENVOI
+        this.lastRejectedChar = null;
         this.lastkey = this.envoi;
         return [data, this.envoi];
       } else if (c === "\x13") {
@@ -343,10 +345,11 @@ export class Minitel {
         } else if (c2 === "\x47" && data !== "") {
           // correction
           await this.send(
-            String.fromCharCode(8) + caractere + String.fromCharCode(8)
+            String.fromCharCode(8) + caractere + String.fromCharCode(8),
           );
           data = data.substring(0, data.length - 1);
         } else {
+          this.lastRejectedChar = null;
           this.lastkey = c2.charCodeAt(0) - 64;
           this.laststar =
             data !== "" && data.substring(data.length - 1) === "*";
@@ -393,6 +396,10 @@ export class Minitel {
           data += accents[accent];
         }
       } else if (c >= " " && data.length >= longueur) {
+        if (longueur === 0 && returnRejectedPrintable) {
+          this.lastRejectedChar = c;
+          return [data, this.rejectedPrintable];
+        }
         await this.bip();
       } else if (c >= " ") {
         data += c;
@@ -433,11 +440,11 @@ export class Minitel {
   /**
    * Display a message at a given position for a given time, then erase it
    */
-  async message(ligne, colonne, delai, message, bip = false) {
-    if (bip) {
-      await this.bip();
-    }
+  async message(ligne, colonne, delai, message, inverse = false) {
     await this.pos(ligne, colonne);
+    if (inverse) {
+      await this.inverse();
+    }
     await this.print(message);
     await new Promise((resolve) => setTimeout(resolve, delai * 1000));
     await this.pos(ligne, colonne);
@@ -516,7 +523,7 @@ export class Minitel {
         this.zones[zone - 1].longueur,
         this.zones[zone - 1].texte,
         ".",
-        false
+        false,
       );
       this.zones[zone - 1].texte = text;
 

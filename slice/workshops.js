@@ -117,7 +117,7 @@ async function displayWorkshopSchedule(m) {
       skipFrame = false;
     }
 
-    const [choix, key] = await m.input(0, 1, 0, "");
+    const [choix, key] = await m.input(0, 1, 0, "", ".", true, true);
     lastKey = key;
 
     await m.cursor(false);
@@ -125,22 +125,22 @@ async function displayWorkshopSchedule(m) {
       if (page + 1 < pageTotal) {
         page++;
       } else {
-        await m.bip();
+        await m.message(0, 8, 2, "You're on the last page", true);
         skipFrame = true;
       }
     } else if (key === m.retour) {
       if (page > 0) {
         page--;
       } else {
-        await m.bip();
+        await m.message(0, 8, 2, "You're on the first page", true);
         skipFrame = true;
       }
     } else if (key === m.sommaire) {
       break;
-    } else if (key === m.correction) {
-      return key;
-    } else if (key !== m.repetition) {
-      await m.bip();
+    } else {
+      await m.message(0, 6, 2, "Use keys at bottom of screen", true);
+      skipFrame = true;
+      continue;
     }
   }
 

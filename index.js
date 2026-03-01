@@ -53,7 +53,7 @@ async function welcomePage(websocket) {
       1,
       "",
       " ",
-      false
+      false,
     );
 
     if (
@@ -67,7 +67,7 @@ async function welcomePage(websocket) {
       await programs[programIndex].handoff(websocket);
       await displayWelcome();
     } else {
-      await m.message(0, 1, 2, "invalid option");
+      await m.message(0, 1, 2, "Invalid option", true);
       await m.del(23, 2 + promptText.length);
       await m.pos(23, 2 + promptText.length);
     }
