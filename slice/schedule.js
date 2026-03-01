@@ -1,14 +1,17 @@
 import { Minitel } from "../minitel.js";
-import { getExhibits } from "./utils.js";
+import { getExhibits, getWorkshops } from "./utils.js";
 import logger from "../logger.js";
 
-async function sliceExhibits(websocket) {
+async function sliceSchedule(websocket, type) {
   const m = new Minitel(websocket);
-  await displayExhibitSchedule(m);
-}
-
-async function displayExhibitSchedule(m) {
-  const events = await getExhibits();
+  const events =
+    type === "exhibits" ? await getExhibits() : await getWorkshops();
+  const title =
+    type === "exhibits"
+      ? "UPCOMING EXHIBITS @ Slice"
+      : "UPCOMING WORKSHOPS @ Slice";
+  const scheduleLabel =
+    type === "exhibits" ? "exhibit schedule" : "workshop schedule";
 
   let page = 0;
   let perPage = 5;
@@ -18,14 +21,13 @@ async function displayExhibitSchedule(m) {
 
   while (true) {
     if (!skipFrame) {
-      logger.info(`Navigating to exhibit schedule page ${page + 1}`);
+      logger.info(`Navigating to ${scheduleLabel} page ${page + 1}`);
       const pageEvents = events.slice(page * perPage, (page + 1) * perPage);
       await m.home();
 
-      // header
       await m.pos(1, 4);
       await m.color(m.jaune);
-      await m.print(`UPCOMING EXHIBITS @ Slice`);
+      await m.print(title);
       await m.pos(2);
       await m.color(m.jaune);
       await m.plot("̶", 40);
@@ -34,22 +36,34 @@ async function displayExhibitSchedule(m) {
         const lineBegin = 3 + i * 4;
         const event = pageEvents[i];
 
-        // page index
         await m.pos(1, 36);
         await m.print(`${(page + 1).toString().padStart(2, "0")}/${pageTotal}`);
         await m.pos(3);
 
-        // selection number
         await m.pos(lineBegin, 2);
         await m.color(m.blanc);
         await m.print((i + 1).toString());
 
-        // date
         await m.pos(lineBegin, 4);
         await m.color(m.vert);
         await m.print(`${event.displayDate}`);
 
-        // event name
+        if (type === "workshops") {
+          if (event.quantity === 0) {
+            await m.pos(lineBegin, 36);
+            await m.color(m.rouge);
+            await m.print("FULL");
+          } else if (event.price === 0) {
+            await m.pos(lineBegin, 36);
+            await m.color(m.vert);
+            await m.print("FREE");
+          } else {
+            await m.pos(lineBegin, 36);
+            await m.color(m.bleu);
+            await m.print(`${event.price.toString().padStart(3, " ")}$`);
+          }
+        }
+
         await m.pos(lineBegin + 1, 4);
         await m.color(m.blanc);
         await m.print(event.name.substring(0, 36));
@@ -58,7 +72,6 @@ async function displayExhibitSchedule(m) {
           await m.print(event.name.substring(36, 36 * 2));
         }
 
-        // item seperator
         await m.pos(lineBegin + 3, 4);
         await m.color(m.jaune);
         if (i !== pageEvents.length - 1) {
@@ -66,12 +79,10 @@ async function displayExhibitSchedule(m) {
         }
       }
 
-      // footer line
       await m.pos(22);
       await m.color(m.jaune);
       await m.plot("̶", 40);
 
-      // footer menu
       if (page > 0) {
         await m.pos(23, 22);
         await m.color(m.vert);
@@ -131,4 +142,4 @@ async function displayExhibitSchedule(m) {
   return lastKey;
 }
 
-export { sliceExhibits };
+export { sliceSchedule };

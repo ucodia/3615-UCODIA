@@ -1,14 +1,13 @@
 import { Minitel } from "./minitel.js";
 import { startServer } from "./server.js";
-import { sliceExhibits } from "./slice/exhibits.js";
-import { sliceWorkshops } from "./slice/workshops.js";
+import { sliceSchedule } from "./slice/schedule.js";
 import { omeletteFacts } from "./slice/omelette.js";
 import { seine } from "./seine.js";
 import logger from "./logger.js";
 
 const programs = [
-  { title: "exhibits calendar", handoff: sliceExhibits },
-  { title: "workshops calendar", handoff: sliceWorkshops },
+  { title: "exhibits calendar", handoff: (ws) => sliceSchedule(ws, "exhibits") },
+  { title: "workshops calendar", handoff: (ws) => sliceSchedule(ws, "workshops") },
   { title: "omelette facts", handoff: omeletteFacts },
   { title: "???", handoff: seine },
 ];
