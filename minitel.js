@@ -363,6 +363,7 @@ export class Minitel {
     data = "",
     caractere = ".",
     redraw = true,
+    envoiWhenFull = false,
   ) {
     // Initial display
     if (redraw) {
@@ -403,6 +404,10 @@ export class Minitel {
       } else {
         data += char;
         await this.send(char);
+        if (envoiWhenFull && data.length >= longueur) {
+          this.lastkey = this.envoi;
+          return [data, this.envoi];
+        }
       }
     }
   }

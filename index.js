@@ -54,6 +54,7 @@ async function welcomePage(websocket) {
       "",
       " ",
       false,
+      true,
     );
 
     if (
