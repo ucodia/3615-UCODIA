@@ -87,46 +87,11 @@ async function displayOmeletteFacts(m) {
     lastKey = key;
 
     if (key === m.suite) {
-      await displayFullscreenOmelette(m);
-    } else if (key === m.retour || key === m.sommaire) {
-      break;
-    } else {
-      await m.message(0, 6, 2, "Use keys at bottom of screen", true);
-      skipFrame = true;
-      continue;
-    }
-  }
-
-  return lastKey;
-}
-
-async function displayFullscreenOmelette(m) {
-  let lastKey = 0;
-  let skipFrame = false;
-
-  while (true) {
-    if (!skipFrame) {
       logger.info("Navigating to fullscreen omelette page");
       await m.home();
-
-      // header
       await m.xdraw("screens/omelette-large.vdt");
-
-      // footer menu
-      await m.pos(24, 32);
-      await m.underline();
-      await m.print(" ");
-      await m.inverse();
-      await m.color(m.cyan);
-      await m.print("_RETOUR ");
-    } else {
-      skipFrame = false;
-    }
-
-    const [, key] = await m.key();
-    lastKey = key;
-
-    if (key === m.retour || key === m.sommaire) {
+      await m.key();
+    } else if (key === m.retour || key === m.sommaire) {
       break;
     } else {
       await m.message(0, 6, 2, "Use keys at bottom of screen", true);
