@@ -29,7 +29,10 @@ async function welcomePage(websocket) {
     for (let i = 0; i < programs.length; i++) {
       const key = programs[i];
       await m.pos(row, 2);
-      await m.print(`${i + 1} - ${key.title}`);
+      await m.inverse();
+      await m.print(`${i + 1}`);
+      await m.inverse(0);
+      await m.print(` - ${key.title}`);
       row += 2;
     }
   }
