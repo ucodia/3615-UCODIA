@@ -1271,7 +1271,7 @@ Minitel.Protocol = class {
     } else {
       // Items are iterable
       range(items.length).forEach((i) =>
-        this.decode(String.fromCharCode(items[i]))
+        this.decode(String.fromCharCode(items[i])),
       );
     }
   }
@@ -1528,11 +1528,11 @@ Minitel.FontSprite = class {
     }
 
     this.spriteSheetColors.color = Minitel.colors.map((color) =>
-      generateColor(this.spriteSheet, color)
+      generateColor(this.spriteSheet, color),
     );
 
     this.spriteSheetColors.gray = Minitel.grays.map((gray) =>
-      generateColor(this.spriteSheet, gray)
+      generateColor(this.spriteSheet, gray),
     );
 
     this.generateCoordinates();
@@ -1626,7 +1626,7 @@ Minitel.FontSprite = class {
           x,
           y,
           this.char.width,
-          1
+          1,
         );
 
         ctx.drawImage(
@@ -1641,7 +1641,7 @@ Minitel.FontSprite = class {
           x,
           y + 1,
           this.char.width,
-          this.char.height
+          this.char.height,
         );
       } else {
         ctx.drawImage(
@@ -1656,7 +1656,7 @@ Minitel.FontSprite = class {
           x,
           y,
           this.char.width,
-          1
+          1,
         );
 
         ctx.drawImage(
@@ -1671,7 +1671,7 @@ Minitel.FontSprite = class {
           x,
           y + 1,
           this.char.width,
-          this.char.height
+          this.char.height,
         );
       }
     } else {
@@ -1688,7 +1688,7 @@ Minitel.FontSprite = class {
         x,
         y,
         this.char.width,
-        this.char.height
+        this.char.height,
       );
     }
 
@@ -2435,7 +2435,7 @@ Minitel.VRAM = class {
 
         if (!(cellType in sizes)) {
           throw new SyntaxError(
-            "Unknown cell type " + cellType + " @" + offset
+            "Unknown cell type " + cellType + " @" + offset,
           );
         }
 
@@ -2443,7 +2443,7 @@ Minitel.VRAM = class {
           this.set(
             x,
             y,
-            Minitel.Cell.fromString(screen.substr(offset, sizes[cellType]))
+            Minitel.Cell.fromString(screen.substr(offset, sizes[cellType])),
           );
         }
 
@@ -2918,7 +2918,7 @@ Minitel.VDUCursor = class {
         this.x * this.char.width,
         this.y * this.char.height,
         this.char.width,
-        this.char.height
+        this.char.height,
       );
     }
 
@@ -3103,7 +3103,7 @@ Minitel.VDU = class {
     this.refresh = window.setInterval(() => {
       this.render();
       const cell = this.vram.get(this.cursor.x, this.cursor.y);
-      this.cursor.setColor(this.colors[cell.fgColor]);
+      this.cursor.setColor(this.colors[Minitel.contrasts[cell.fgColor]]);
     }, 1000 / frameRate);
   }
 
@@ -3190,7 +3190,7 @@ Minitel.VDU = class {
       0,
       0,
       this.char.width * this.grid.cols,
-      this.char.height * this.grid.rows
+      this.char.height * this.grid.rows,
     );
 
     return ctx;
@@ -3551,8 +3551,8 @@ Minitel.Decoder = class extends Minitel.Protocol {
           that.sender(
             keycodes.reduce(
               (accum, curr) => accum + String.fromCharCode(curr),
-              ""
-            )
+              "",
+            ),
           );
         }
       });
@@ -3685,7 +3685,7 @@ Minitel.Decoder = class extends Minitel.Protocol {
           // Go to start of next row
           this.vdu.cursor.firstColumn();
           range(this.current.mult.height).forEach(() =>
-            this.moveCursor("down")
+            this.moveCursor("down"),
           );
         }
       }
@@ -4729,7 +4729,7 @@ Minitel.Emulator = class {
       char,
       elements.screen,
       this.color ? Minitel.colors : Minitel.greys,
-      elements.cursor
+      elements.cursor,
     );
 
     /**
@@ -4775,8 +4775,8 @@ Minitel.Emulator = class {
         if (this.keyboard) {
           this.keyboard.setEmitter((keycodes) =>
             this.socket.send(
-              keycodes.map((c) => String.fromCharCode(c)).join("")
-            )
+              keycodes.map((c) => String.fromCharCode(c)).join(""),
+            ),
           );
         }
       };
@@ -4803,7 +4803,7 @@ Minitel.Emulator = class {
       this.vdu,
       this.keyboard,
       sender,
-      elements.beep
+      elements.beep,
     );
 
     /**
@@ -4839,14 +4839,14 @@ Minitel.Emulator = class {
 
     // Sets colors
     this.setColor(
-      color ?? container.getAttribute("data-color") === "true" ?? false
+      color ?? container.getAttribute("data-color") === "true" ?? false,
     );
 
     // Sets speed
     this.setRefresh(
       speed ??
         parseInt(container.getAttribute("data-speed"), 10) ??
-        Minitel.B1200
+        Minitel.B1200,
     );
 
     // Add event listeners
@@ -4963,7 +4963,7 @@ Minitel.Emulator = class {
       this.initRefresh(bandwidth, rate);
       if (this.keyboard) {
         this.keyboard.selectSpeed(
-          bandwidth === 0 ? "FULL" : bandwidth.toString()
+          bandwidth === 0 ? "FULL" : bandwidth.toString(),
         );
       }
     }
@@ -4980,7 +4980,7 @@ Minitel.Emulator = class {
     const rect = event.target.getBoundingClientRect();
     const keyword = this.vdu.getWordAt(
       event.pageX - rect.left - window.scrollX,
-      event.pageY - rect.top - window.scrollY
+      event.pageY - rect.top - window.scrollY,
     );
 
     if (keyword === "") return true;
