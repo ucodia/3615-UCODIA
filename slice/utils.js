@@ -7,7 +7,15 @@ const BASE_URL =
 const WORKSHOP_URL = `${BASE_URL}?per_page=200&categories[]=IPSBNDZZVKKKFGAXTKHXENOG`;
 const EXHIBITS_URL = `${BASE_URL}?per_page=200&categories[]=MMDIM4KVPD4DWPWJFHWGKFDA`;
 
+const CACHE_TTL_MS = 60 * 60 * 1000;
+const urlCache = new Map();
+
 async function getEvents(URL) {
+  const cached = urlCache.get(URL);
+  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+    console.log("Events cache hit:", URL);
+    return cached.events;
+  }
   try {
     const response = await axios.get(URL);
     const products = response.data.data;
@@ -49,6 +57,8 @@ async function getEvents(URL) {
       // sort by date ascending
       .sort((a, b) => new Date(a.date) - new Date(b.date));
 
+    urlCache.set(URL, { events, fetchedAt: Date.now() });
+    console.log("Events cache set:", URL);
     return events;
   } catch (error) {
     console.error("Error fetching or processing events:", error.message);
