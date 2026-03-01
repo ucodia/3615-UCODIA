@@ -45,12 +45,11 @@ async function seine(websocket) {
 
   // Listen for ENVOI key to generate new artwork or SOMMAIRE to return to welcome page
   while (true) {
-    const [_, key] = await m.input(24, 40, 0, "", " ", false);
+    const [_, key] = await m.key();
 
     if (key === m.envoi) {
-      break;
       await displayArtwork(m);
-    } else if (key === m.sommaire) {
+    } else {
       break;
     }
   }

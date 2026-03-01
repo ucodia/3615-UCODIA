@@ -102,10 +102,9 @@ async function displayExhibitSchedule(m) {
       skipFrame = false;
     }
 
-    const [choix, key] = await m.input(0, 1, 0, "", ".", true, true);
+    const [, key] = await m.key();
     lastKey = key;
 
-    await m.cursor(false);
     if (key === m.suite) {
       if (page + 1 < pageTotal) {
         page++;

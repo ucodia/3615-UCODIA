@@ -46,7 +46,6 @@ export class Minitel {
     this.correction = 7;
     this.suite = 8;
     this.connexionfin = 9;
-    this.rejectedPrintable = -1;
 
     // Protocol sequence constants
     this.PRO1 = "\x1b\x39";
@@ -299,6 +298,61 @@ export class Minitel {
     await this.sendesc(String.fromCharCode(80 + couleur));
   }
 
+  async #readKey() {
+    const accents = {
+      Aa: "à",
+      Ca: "â",
+      Ae: "è",
+      Be: "é",
+      Ce: "ê",
+      He: "ë",
+      Ci: "î",
+      Hi: "ï",
+      Co: "ô",
+      Cu: "û",
+      Hu: "ü",
+      Kc: "ç",
+      "\x6a": "Œ",
+      "\x7a": "œ",
+      "\x30": "°",
+      "\x23": "£",
+      "\x7b": "ß",
+    };
+    while (true) {
+      const c = await this.#read(1);
+      if (c === "") continue;
+      if (c === "\r") return { char: "", key: this.envoi };
+      if (c === "\x13") {
+        const c2 = await this.#read(1);
+        return { char: "", key: c2.charCodeAt(0) - 64 };
+      }
+      if (c === "\x1b") {
+        const c2 = await this.#read(1);
+        const escSeq = c + c2;
+        if (escSeq === this.PRO1) await this.#read(1);
+        else if (escSeq === this.PRO2) await this.#read(2);
+        else if (escSeq === this.PRO3) await this.#read(3);
+        continue;
+      }
+      if (c === "\x16" || c === "\x19") {
+        let accent = await this.#read(1);
+        if ("ABCHK".includes(accent)) accent += await this.#read(1);
+        const ch = accents[accent];
+        return { char: ch ?? c, key: 0 };
+      }
+      if (c >= " ") return { char: c, key: 0 };
+    }
+  }
+
+  async key() {
+    const { char, key } = await this.#readKey();
+    if (key !== 0) {
+      this.lastkey = key;
+      this.laststar = false;
+    }
+    return [char, key];
+  }
+
   /**
    * Input zone management
    */
@@ -309,7 +363,6 @@ export class Minitel {
     data = "",
     caractere = ".",
     redraw = true,
-    returnRejectedPrintable = false,
   ) {
     // Initial display
     if (redraw) {
@@ -322,88 +375,34 @@ export class Minitel {
     await this.sendchr(17); // Con
 
     while (true) {
-      const c = await this.#read(1);
-      if (c === "") {
-        continue;
-      } else if (c === "\r") {
-        this.lastRejectedChar = null;
+      const { char, key } = await this.#readKey();
+
+      if (key === this.envoi) {
         this.lastkey = this.envoi;
         return [data, this.envoi];
-      } else if (c === "\x13") {
-        // SEP so Minitel key...
-        const c2 = await this.#read(1);
-
-        if (c2 === "\x45" && data !== "") {
-          // cancellation
-          data = "";
-          await this.sendchr(20); // Coff
-          await this.pos(ligne, colonne);
-          await this.print(data);
-          await this.plot(caractere, longueur - data.length);
-          await this.pos(ligne, colonne);
-          await this.sendchr(17); // Con
-        } else if (c2 === "\x47" && data !== "") {
-          // correction
-          await this.send(
-            String.fromCharCode(8) + caractere + String.fromCharCode(8),
-          );
-          data = data.substring(0, data.length - 1);
-        } else {
-          this.lastRejectedChar = null;
-          this.lastkey = c2.charCodeAt(0) - 64;
-          this.laststar =
-            data !== "" && data.substring(data.length - 1) === "*";
-          return [data, c2.charCodeAt(0) - 64];
-        }
-      } else if (c === "\x1b") {
-        // filtering protocol acknowledgments...
-        const c2 = await this.#read(1);
-        const escSeq = c + c2;
-        if (escSeq === this.PRO1) {
-          await this.#read(1);
-        } else if (escSeq === this.PRO2) {
-          await this.#read(2);
-        } else if (escSeq === this.PRO3) {
-          await this.#read(3);
-        }
-      } else if (c === "\x16" || c === "\x19") {
-        // accent...
-        console.log("accent");
-        let accent = await this.#read(1);
-        if ("ABCHK".includes(accent)) {
-          accent += await this.#read(1);
-        }
-        const accents = {
-          Aa: "à",
-          Ca: "â",
-          Ae: "è",
-          Be: "é",
-          Ce: "ê",
-          He: "ë",
-          Ci: "î",
-          Hi: "ï",
-          Co: "ô",
-          Cu: "û",
-          Hu: "ü",
-          Kc: "ç",
-          "\x6a": "Œ",
-          "\x7a": "œ",
-          "\x30": "°",
-          "\x23": "£",
-          "\x7b": "ß",
-        };
-        if (accent in accents) {
-          data += accents[accent];
-        }
-      } else if (c >= " " && data.length >= longueur) {
-        if (longueur === 0 && returnRejectedPrintable) {
-          this.lastRejectedChar = c;
-          return [data, this.rejectedPrintable];
-        }
+      } else if (key === this.annulation && data !== "") {
+        data = "";
+        await this.sendchr(20); // Coff
+        await this.pos(ligne, colonne);
+        await this.print(data);
+        await this.plot(caractere, longueur - data.length);
+        await this.pos(ligne, colonne);
+        await this.sendchr(17); // Con
+      } else if (key === this.correction && data !== "") {
+        await this.send(
+          String.fromCharCode(8) + caractere + String.fromCharCode(8),
+        );
+        data = data.substring(0, data.length - 1);
+      } else if (key !== 0) {
+        this.lastkey = key;
+        this.laststar =
+          data !== "" && data.substring(data.length - 1) === "*";
+        return [data, key];
+      } else if (data.length >= longueur) {
         await this.bip();
-      } else if (c >= " ") {
-        data += c;
-        await this.send(c); // echo
+      } else {
+        data += char;
+        await this.send(char);
       }
     }
   }
@@ -561,10 +560,7 @@ export class Minitel {
     });
   }
 
-  /**
-   * Last function key used on the Minitel during input
-   */
-  key() {
+  lastKey() {
     return this.lastkey;
   }
 

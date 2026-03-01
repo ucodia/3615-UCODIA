@@ -83,15 +83,12 @@ async function displayOmeletteFacts(m) {
       skipFrame = false;
     }
 
-    const [choix, key] = await m.input(0, 1, 0, "", ".", true, true);
+    const [, key] = await m.key();
     lastKey = key;
 
-    await m.cursor(false);
     if (key === m.suite) {
       await displayFullscreenOmelette(m);
-    } else if (key === m.retour) {
-      break;
-    } else if (key === m.sommaire) {
+    } else if (key === m.retour || key === m.sommaire) {
       break;
     } else {
       await m.message(0, 6, 2, "Use keys at bottom of screen", true);
@@ -126,13 +123,10 @@ async function displayFullscreenOmelette(m) {
       skipFrame = false;
     }
 
-    const [choix, key] = await m.input(0, 1, 0, "", ".", true, true);
+    const [, key] = await m.key();
     lastKey = key;
 
-    await m.cursor(false);
-    if (key === m.retour) {
-      break;
-    } else if (key === m.sommaire) {
+    if (key === m.retour || key === m.sommaire) {
       break;
     } else {
       await m.message(0, 6, 2, "Use keys at bottom of screen", true);
