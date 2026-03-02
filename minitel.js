@@ -4,7 +4,15 @@ import { dirname, join } from "path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+const SCREENSAVER_IDLE_MS = 180_000;
+const SCREENSAVER_CHECK_MS = 5_000;
+
 export class Minitel {
+  #lastActivityTime;
+  #screensaverActive;
+  #screenBuffer;
+  #screensaverTimer;
+
   /**
    * Class for managing videotex input/output with a Minitel
    * @param {WebSocket} websocket - WebSocket connection
@@ -51,32 +59,48 @@ export class Minitel {
     this.PRO1 = "\x1b\x39";
     this.PRO2 = "\x1b\x3a";
     this.PRO3 = "\x1b\x3b";
+
+    this.#lastActivityTime = Date.now();
+    this.#screensaverActive = false;
+    this.#screenBuffer = "";
+    this.#screensaverTimer = null;
+
+    this.startScreenSaver();
+    this.ws.on("close", () => this.stopScreenSaver());
   }
 
   // Private WebSocket methods
   async #write(data) {
+    let toSend = "";
     if (typeof data === "string") {
-      await this.ws.send(data);
+      toSend = data;
     } else {
-      // If data is a Uint8Array, convert it to a string
       const dataStr = new TextDecoder().decode(data);
-      // Remove any 0xFF characters and everything after
       const ffIndex = dataStr.indexOf("\xff");
-      const cleanData =
-        ffIndex > 0 ? dataStr.substring(0, ffIndex - 1) : dataStr;
-      await this.ws.send(cleanData);
+      toSend = ffIndex > 0 ? dataStr.substring(0, ffIndex - 1) : dataStr;
     }
+    if (!this.#screensaverActive) {
+      this.#screenBuffer += toSend;
+      const lastClear = this.#screenBuffer.lastIndexOf("\x0C");
+      if (lastClear > 0) {
+        this.#screenBuffer = this.#screenBuffer.substring(lastClear);
+      }
+    }
+    await this.ws.send(toSend);
   }
 
   async #read(maxlen = 1) {
     if (this.buffer.length < maxlen) {
       try {
-        // This assumes the WebSocket is set up to receive messages
-        // and store them in a way that can be accessed here
         const data = await new Promise((resolve) => {
           this.ws.onmessage = (event) => resolve(event.data);
         });
-        this.buffer += data;
+        this.#lastActivityTime = Date.now();
+        if (this.#screensaverActive) {
+          await this.#screensaverStop();
+        } else {
+          this.buffer += data;
+        }
       } catch (error) {
         console.error("Error reading from WebSocket:", error);
       }
@@ -93,6 +117,83 @@ export class Minitel {
 
   #inWaiting() {
     return this.buffer.length;
+  }
+
+  async #screensaverUpdate() {
+    this.#screensaverActive = true;
+    const lstart = Math.floor(Math.random() * 18) + 1;
+    const cstart = Math.floor(Math.random() * 32) + 2;
+    const color1 = "\x1B" + String.fromCharCode(64 + this.blanc);
+    const color2 = "\x1B" + String.fromCharCode(64 + this.gris6);
+    const vdt =
+      "\x14\x1F\x41\x41\x18\x0C" +
+      "\x1F" +
+      String.fromCharCode(64 + lstart) +
+      String.fromCharCode(64 + cstart) +
+      "\x0E" +
+      color1 +
+      " x^__|0" +
+      "\x1F" +
+      String.fromCharCode(64 + lstart + 1) +
+      String.fromCharCode(64 + cstart) +
+      "\x0E" +
+      color1 +
+      "z_\x1BQ7_7__\x1BP0" +
+      "\x1F" +
+      String.fromCharCode(64 + lstart + 2) +
+      String.fromCharCode(64 + cstart) +
+      "\x0E" +
+      color1 +
+      "_\x1BQ7___7_\x1BP5" +
+      "\x1F" +
+      String.fromCharCode(64 + lstart + 3) +
+      String.fromCharCode(64 + cstart) +
+      "\x0E" +
+      color1 +
+      "k_\x1BQvss^_\x1BP!" +
+      "\x1F" +
+      String.fromCharCode(64 + lstart + 4) +
+      String.fromCharCode(64 + cstart) +
+      "\x0E" +
+      color1 +
+      " +o__/!" +
+      "\x1F" +
+      String.fromCharCode(64 + lstart + 5) +
+      String.fromCharCode(64 + cstart) +
+      "\x1BH" +
+      color2 +
+      "Touch my" +
+      "\x1F" +
+      String.fromCharCode(64 + lstart + 6) +
+      String.fromCharCode(64 + cstart) +
+      "\x1BH" +
+      color2 +
+      "keyboard!";
+    this.ws.send(vdt);
+  }
+
+  async #screensaverStop() {
+    this.#screensaverActive = false;
+    if (this.#screenBuffer.length > 0) {
+      this.ws.send("\x0C" + this.#screenBuffer);
+    }
+  }
+
+  startScreenSaver() {
+    if (this.#screensaverTimer != null) return;
+    this.#screensaverTimer = setInterval(() => {
+      const idleMs = Date.now() - this.#lastActivityTime;
+      if (idleMs > SCREENSAVER_IDLE_MS) {
+        this.#screensaverUpdate();
+      }
+    }, SCREENSAVER_CHECK_MS);
+  }
+
+  stopScreenSaver() {
+    if (this.#screensaverTimer != null) {
+      clearInterval(this.#screensaverTimer);
+      this.#screensaverTimer = null;
+    }
   }
 
   /**
@@ -396,8 +497,7 @@ export class Minitel {
         data = data.substring(0, data.length - 1);
       } else if (key !== 0) {
         this.lastkey = key;
-        this.laststar =
-          data !== "" && data.substring(data.length - 1) === "*";
+        this.laststar = data !== "" && data.substring(data.length - 1) === "*";
         return [data, key];
       } else if (data.length >= longueur) {
         await this.bip();
