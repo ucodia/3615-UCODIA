@@ -84,24 +84,22 @@ async function sliceSchedule(websocket, type) {
       await m.plot("̶", 40);
 
       if (page > 0) {
-        await m.pos(23, 22);
+        await m.pos(24, 23);
         await m.color(m.vert);
-        await m.print("previous →");
-        await m.underline();
-        await m.print(" ");
+        await m.print("prev ");
         await m.inverse();
         await m.color(m.cyan);
-        await m.print("_RETOUR ");
+        await m.print(" ← ");
+        await m.inverse(0);
       }
       if (page + 1 < pageTotal) {
-        await m.pos(24, 26);
+        await m.pos(24, 33);
         await m.color(m.vert);
-        await m.print("next →");
-        await m.underline();
-        await m.print(" ");
+        await m.print("next ");
         await m.inverse();
         await m.color(m.cyan);
-        await m.print("_SUITE  ");
+        await m.print(" → ");
+        await m.inverse(0);
       }
       await m.pos(24, 1);
       await m.color(m.vert);
@@ -116,14 +114,14 @@ async function sliceSchedule(websocket, type) {
     const [, key] = await m.key();
     lastKey = key;
 
-    if (key === m.suite) {
+    if (key === m.suite || key === m.droite) {
       if (page + 1 < pageTotal) {
         page++;
       } else {
         await m.message(0, 8, 2, "You're on the last page", true);
         skipFrame = true;
       }
-    } else if (key === m.retour) {
+    } else if (key === m.retour || key === m.gauche) {
       if (page > 0) {
         page--;
       } else {

@@ -47,6 +47,12 @@ export class Minitel {
     this.suite = 8;
     this.connexionfin = 9;
 
+    // Cursor key constants
+    this.haut = 10;
+    this.bas = 11;
+    this.droite = 12;
+    this.gauche = 13;
+
     // Protocol sequence constants
     this.PRO1 = "\x1b\x39";
     this.PRO2 = "\x1b\x3a";
@@ -332,7 +338,14 @@ export class Minitel {
         if (escSeq === this.PRO1) await this.#read(1);
         else if (escSeq === this.PRO2) await this.#read(2);
         else if (escSeq === this.PRO3) await this.#read(3);
+        else if (c2 === "[") {
+          const key = this.#cursorKey(await this.#readCsiFinal());
+          if (key !== 0) return { char: "", key };
+        }
         continue;
+      }
+      if (c >= "\x08" && c <= "\x0b") {
+        return { char: "", key: this.#cursorKey(c) };
       }
       if (c === "\x16" || c === "\x19") {
         let accent = await this.#read(1);
@@ -341,6 +354,37 @@ export class Minitel {
         return { char: ch ?? c, key: 0 };
       }
       if (c >= " ") return { char: c, key: 0 };
+    }
+  }
+
+  // Reads the remaining bytes of a CSI sequence (ESC [ ... final) and
+  // returns the final byte
+  async #readCsiFinal() {
+    while (true) {
+      const c = await this.#read(1);
+      if (c === "") continue;
+      if (c >= "@" && c <= "~") return c;
+    }
+  }
+
+  // Maps a cursor key code to its constant, whether the keyboard sends
+  // C0 codes (standard) or CSI sequences (extended)
+  #cursorKey(c) {
+    switch (c) {
+      case "\x0b":
+      case "A":
+        return this.haut;
+      case "\x0a":
+      case "B":
+        return this.bas;
+      case "\x09":
+      case "C":
+        return this.droite;
+      case "\x08":
+      case "D":
+        return this.gauche;
+      default:
+        return 0;
     }
   }
 

@@ -65,14 +65,13 @@ async function displayOmeletteFacts(m) {
       await m.plot("̶", 40);
 
       // footer menu
-      await m.pos(24, 22);
+      await m.pos(24, 29);
       await m.color(m.vert);
-      await m.print("close up →");
-      await m.underline();
-      await m.print(" ");
+      await m.print("close up ");
       await m.inverse();
       await m.color(m.cyan);
-      await m.print("_SUITE  ");
+      await m.print(" → ");
+      await m.inverse(0);
       await m.pos(24, 1);
       await m.color(m.vert);
       await m.print("main menu → ");
@@ -86,12 +85,12 @@ async function displayOmeletteFacts(m) {
     const [, key] = await m.key();
     lastKey = key;
 
-    if (key === m.suite) {
+    if (key === m.suite || key === m.droite) {
       logger.info("Navigating to fullscreen omelette page");
       await m.home();
       await m.xdraw("screens/omelette-large.vdt");
       await m.key();
-    } else if (key === m.retour || key === m.sommaire) {
+    } else if (key === m.retour || key === m.gauche || key === m.sommaire) {
       break;
     } else {
       await m.message(0, 6, 2, "Use keys at bottom of screen", true);
