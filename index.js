@@ -6,10 +6,10 @@ import { venablesVibes } from "./slice/venables.js";
 import logger from "./logger.js";
 
 const programs = [
-  { title: "exhibits calendar", handoff: (ws) => sliceSchedule(ws, "exhibits") },
-  { title: "workshops calendar", handoff: (ws) => sliceSchedule(ws, "workshops") },
-  { title: "omelette facts", handoff: omeletteFacts },
-  { title: "venables vibes", handoff: venablesVibes },
+  { key: "1", title: "exhibits calendar", handoff: (ws) => sliceSchedule(ws, "exhibits") },
+  { key: "2", title: "workshops calendar", handoff: (ws) => sliceSchedule(ws, "workshops") },
+  { key: "3", title: "omelette facts", handoff: omeletteFacts },
+  { key: "V", title: "venables vibes", handoff: venablesVibes },
 ];
 
 // Welcome page handler
@@ -25,13 +25,12 @@ async function welcomePage(websocket) {
 
     // content
     let row = 15;
-    for (let i = 0; i < programs.length; i++) {
-      const key = programs[i];
+    for (const program of programs) {
       await m.pos(row, 2);
       await m.inverse();
-      await m.print(`${i + 1}`);
+      await m.print(program.key);
       await m.inverse(0);
-      await m.print(` - ${key.title}`);
+      await m.print(` - ${program.title}`);
       row += 2;
     }
   }
@@ -43,9 +42,7 @@ async function welcomePage(websocket) {
   while (true) {
     // Display instruction on before last row (row 23) and position cursor right after
     await m.pos(23, 2);
-    // Create a range string like "1-3" based on number of programs
-    const range = programs.length > 1 ? `1-${programs.length}` : "1";
-    const promptText = `select an option (${range}): `;
+    const promptText = `select an option (${programs.map((p) => p.key).join(",")}): `;
     await m.print(promptText);
 
     // Get input at the position right after the prompt text
@@ -59,15 +56,13 @@ async function welcomePage(websocket) {
       true,
     );
 
-    if (
+    const program =
       key === m.envoi &&
-      input &&
-      parseInt(input) >= 1 &&
-      parseInt(input) <= programs.length
-    ) {
-      const programIndex = parseInt(input) - 1;
+      programs.find((p) => p.key === input?.trim().toUpperCase());
+
+    if (program) {
       await m.cls();
-      await programs[programIndex].handoff(websocket);
+      await program.handoff(websocket);
       await displayWelcome();
     } else {
       await m.message(0, 1, 2, "Invalid option", true);
