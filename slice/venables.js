@@ -42,7 +42,7 @@ async function drawMapFooter(m, page, pageTotal) {
     await m.print("go west ");
     await m.inverse();
     await m.color(m.cyan);
-    await m.print(" ← ");
+    await m.print(" W ");
     await m.inverse(0);
   }
   if (page + 1 < pageTotal) {
@@ -51,7 +51,7 @@ async function drawMapFooter(m, page, pageTotal) {
     await m.print("go east ");
     await m.inverse();
     await m.color(m.cyan);
-    await m.print(" → ");
+    await m.print(" E ");
     await m.inverse(0);
   }
   await m.pos(24, 1);
@@ -103,18 +103,18 @@ async function venablesVibes(websocket) {
     }
 
     const stopMarquee = startMarquee(m, page);
-    const [, key] = await m.key();
+    const [char, key] = await m.key();
     stopMarquee();
     lastKey = key;
 
-    if (key === m.suite || key === m.droite) {
+    if (key === m.suite || key === m.droite || char.toUpperCase() === "E") {
       if (page + 1 < pageTotal) {
         page++;
       } else {
         await m.message(0, 8, 2, "You're on the last page", true);
         skipFrame = true;
       }
-    } else if (key === m.retour || key === m.gauche) {
+    } else if (key === m.retour || key === m.gauche || char.toUpperCase() === "W") {
       if (page > 0) {
         page--;
       } else {
