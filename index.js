@@ -2,14 +2,14 @@ import { Minitel } from "./minitel.js";
 import { startServer } from "./server.js";
 import { sliceSchedule } from "./slice/schedule.js";
 import { omeletteFacts } from "./slice/omelette.js";
-import { seine } from "./seine.js";
+import { venablesVibes } from "./slice/venables.js";
 import logger from "./logger.js";
 
 const programs = [
   { title: "exhibits calendar", handoff: (ws) => sliceSchedule(ws, "exhibits") },
   { title: "workshops calendar", handoff: (ws) => sliceSchedule(ws, "workshops") },
   { title: "omelette facts", handoff: omeletteFacts },
-  { title: "???", handoff: seine },
+  { title: "venables vibes", handoff: venablesVibes },
 ];
 
 // Welcome page handler
