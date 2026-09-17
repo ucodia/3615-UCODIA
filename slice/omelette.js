@@ -70,7 +70,7 @@ async function displayOmeletteFacts(m) {
       await m.print("close up ");
       await m.inverse();
       await m.color(m.cyan);
-      await m.print(" → ");
+      await m.print(" 3 ");
       await m.inverse(0);
       await m.pos(24, 1);
       await m.color(m.vert);
@@ -82,10 +82,10 @@ async function displayOmeletteFacts(m) {
       skipFrame = false;
     }
 
-    const [, key] = await m.key();
+    const [char, key] = await m.key();
     lastKey = key;
 
-    if (key === m.suite || key === m.droite) {
+    if (key === m.suite || key === m.droite || char === "3") {
       logger.info("Navigating to fullscreen omelette page");
       await m.home();
       await m.xdraw("screens/omelette-large.vdt");

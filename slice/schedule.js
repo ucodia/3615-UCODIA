@@ -89,7 +89,7 @@ async function sliceSchedule(websocket, type) {
         await m.print("prev ");
         await m.inverse();
         await m.color(m.cyan);
-        await m.print(" ← ");
+        await m.print(" 1 ");
         await m.inverse(0);
       }
       if (page + 1 < pageTotal) {
@@ -98,7 +98,7 @@ async function sliceSchedule(websocket, type) {
         await m.print("next ");
         await m.inverse();
         await m.color(m.cyan);
-        await m.print(" → ");
+        await m.print(" 3 ");
         await m.inverse(0);
       }
       await m.pos(24, 1);
@@ -111,17 +111,17 @@ async function sliceSchedule(websocket, type) {
       skipFrame = false;
     }
 
-    const [, key] = await m.key();
+    const [char, key] = await m.key();
     lastKey = key;
 
-    if (key === m.suite || key === m.droite) {
+    if (key === m.suite || key === m.droite || char === "3") {
       if (page + 1 < pageTotal) {
         page++;
       } else {
         await m.message(0, 8, 2, "You're on the last page", true);
         skipFrame = true;
       }
-    } else if (key === m.retour || key === m.gauche) {
+    } else if (key === m.retour || key === m.gauche || char === "1") {
       if (page > 0) {
         page--;
       } else {
