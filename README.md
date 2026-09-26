@@ -13,7 +13,7 @@ git pull
 ./install.sh
 ```
 
-This installs production dependencies, writes `/etc/systemd/system/slice.service` pointing at this repo, enables it at boot and restarts it.
+This installs production dependencies (skipped when `package-lock.json` and the Node version are unchanged since the last install), writes `/etc/systemd/system/slice.service` pointing at this repo, enables it at boot and restarts it.
 
 ```sh
 systemctl status slice       # state

@@ -20,9 +20,17 @@ done
 
 NODE_BIN="$(command -v node)"
 
-echo "==> Installing dependencies in ${APP_DIR} (node $(node --version))"
 cd "$APP_DIR"
-npm ci --omit=dev
+DEPS_STAMP="node_modules/.install-stamp"
+DEPS_HASH="$(node --version) $(sha256sum package-lock.json | cut -d' ' -f1)"
+
+if [ -f "$DEPS_STAMP" ] && [ "$(cat "$DEPS_STAMP")" = "$DEPS_HASH" ]; then
+  echo "==> Dependencies unchanged, skipping install (delete node_modules to force)"
+else
+  echo "==> Installing dependencies in ${APP_DIR} (node $(node --version))"
+  npm ci --omit=dev
+  echo "$DEPS_HASH" >"$DEPS_STAMP"
+fi
 
 echo "==> Writing ${UNIT_PATH}"
 sudo tee "$UNIT_PATH" >/dev/null <<EOF
