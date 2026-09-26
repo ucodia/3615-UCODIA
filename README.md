@@ -35,7 +35,7 @@ sudo systemctl daemon-reload
 
 The Minitel keyboard is failing progressively. Keys that no longer respond:
 
-- Retour, Suite
+- Retour, Suite, Envoi
 - 4 5 6 7 8 9 0 \* #
 - Esc ; - :
 - U I O
@@ -50,5 +50,6 @@ Temporary remaps until the keyboard is repaired:
 | Calendars        | Previous / next   | Retour / Suite, ← → | 1 / 3         |
 | Omelette facts   | Close up          | Suite, →            | 3             |
 | Venables Vibes   | Go west / go east | Retour / Suite, ← → | W / E         |
+| Venables Vibes   | Show QR code      | Envoi               | 1             |
 
 The original keys are still handled in code, so once the hardware is fixed only the on-screen labels and the main menu key need to be restored. New pages should only rely on keys that still work.

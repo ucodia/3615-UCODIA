@@ -61,12 +61,12 @@ async function drawMapFooter(m, page, pageTotal) {
   await m.color(m.cyan);
   await m.print("SOMMAIRE");
   await m.inverse(0);
-  await m.pos(24, 26);
+  await m.pos(24, 28);
   await m.color(m.vert);
   await m.print("QR code → ");
   await m.inverse();
   await m.color(m.cyan);
-  await m.print("ENVOI");
+  await m.print(" 1 ");
   await m.inverse(0);
 }
 
@@ -121,7 +121,7 @@ async function venablesVibes(websocket) {
         await m.message(0, 8, 2, "You're on the first page", true);
         skipFrame = true;
       }
-    } else if (key === m.envoi) {
+    } else if (key === m.envoi || char === "1") {
       await showQrPage(m);
     } else if (key === m.sommaire) {
       break;
