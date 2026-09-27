@@ -2,6 +2,7 @@ import express from "express";
 import http from "http";
 import path from "path";
 import { fileURLToPath } from "url";
+import { timingSafeEqual } from "crypto";
 import { WebSocketServer } from "ws";
 import logger from "./logger.js";
 import { vdtHandler } from "./image/api.js";
@@ -14,10 +15,22 @@ function getClientIp(req) {
   );
 }
 
-export function startServer(serviceHandler, port, { photoStore = null, sweepMs = 60000 } = {}) {
+export function selectProtocol(token) {
+  if (!token) return () => false;
+  const expected = Buffer.from(token);
+  return (protocols) => {
+    for (const offered of protocols) {
+      const candidate = Buffer.from(offered);
+      if (candidate.length === expected.length && timingSafeEqual(candidate, expected)) return token;
+    }
+    return false;
+  };
+}
+
+export function startServer(serviceHandler, port, { photoStore = null, sweepMs = 60000, terminalToken = null } = {}) {
   const app = express();
   const server = http.createServer(app);
-  const wss = new WebSocketServer({ server });
+  const wss = new WebSocketServer({ server, handleProtocols: selectProtocol(terminalToken) });
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
   app.use((req, res, next) => {
@@ -51,7 +64,11 @@ export function startServer(serviceHandler, port, { photoStore = null, sweepMs =
   });
 
   wss.on("connection", (ws, req) => {
-    logger.info(`[WS] New client connected with IP ${getClientIp(req)} - Total clients: ${wss.clients.size}`);
+    const terminal = Boolean(terminalToken) && ws.protocol === terminalToken;
+    logger.info(`[WS] New ${terminal ? "terminal" : "public"} client connected with IP ${getClientIp(req)} - Total clients: ${wss.clients.size}`);
+    if (!terminal && req.headers["sec-websocket-protocol"]) {
+      logger.warn(`[WS] Client ${getClientIp(req)} offered an unrecognised subprotocol`);
+    }
     ws.on("close", () => {
       logger.info(`[WS] Client disconnected with IP ${getClientIp(req)} - Total clients: ${wss.clients.size}`);
     });
@@ -59,7 +76,7 @@ export function startServer(serviceHandler, port, { photoStore = null, sweepMs =
       logger.error(`[WS] Error: ${error.message}`);
     });
 
-    serviceHandler(ws, req);
+    serviceHandler(ws, req, { terminal });
   });
 
   const interval = setInterval(() => {
