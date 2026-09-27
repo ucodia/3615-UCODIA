@@ -38,7 +38,7 @@ async function welcomePage(websocket) {
     await m.xdraw("screens/slice.vdt");
 
     // content
-    let row = 15;
+    let row = 13;
     for (const program of programs) {
       await m.pos(row, 2);
       await m.inverse();
