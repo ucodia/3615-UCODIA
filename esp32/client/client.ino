@@ -70,15 +70,10 @@ bool connectWiFi() {
 
 void connectWebSocket() {
   debugPrintf("\n> Websocket connection\n");
-  if (protocol[0] == '\0') {
-    if (ssl) webSocket.beginSSL(host, port, path);
-    else webSocket.begin(host, port, path);
-  }
-  else {
-    debugPrintf("  - subprotocol added\n");
-    if (ssl) webSocket.beginSSL(host, port, path, protocol);
-    else webSocket.begin(host, port, path, protocol);
-  }
+  // an empty protocol sends no Sec-WebSocket-Protocol header; the library's default would offer "arduino"
+  if (protocol[0] != '\0') debugPrintf("  - subprotocol added\n");
+  if (ssl) webSocket.beginSSL(host, port, path, "", protocol);
+  else webSocket.begin(host, port, path, protocol);
   
   webSocket.onEvent(webSocketEvent);
   

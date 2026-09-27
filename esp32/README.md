@@ -38,3 +38,8 @@ Then, with the port in `ESP32_PORT` (default `/dev/cu.usbserial-0001`):
     ESP32_PORT=/dev/cu.usbserial-0001 npm run esp32:monitor
 
 The monitor runs at 115200 baud. A good boot prints the detected Minitel baud rate, the network it joined with its IP, then `[WS] Connected to url: /`, and the welcome page appears on the Minitel with the photobooth entry. A wrong token still connects but the menu has no `P` entry; a wrong host or an unreachable network loops on reconnect messages.
+
+## Security notes
+
+- The token travels inside TLS, but the sketch does not verify the server's certificate: arduinoWebSockets sets the connection insecure when no fingerprint or CA is given. Someone on the same Wi-Fi who can spoof DNS for the host could present their own certificate and read the token from the handshake. Pinning a CA (`beginSslWithCA` with the Cloudflare edge root) closes that at the cost of maintaining the certificate in the firmware.
+- `config.h` holds the token and the Wi-Fi passwords in clear text and so does the flashed firmware. Keep `.env` at mode 600 and do not share compiled binaries.

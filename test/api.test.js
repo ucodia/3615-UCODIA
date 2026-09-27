@@ -88,3 +88,14 @@ test("playground, lib and the conversion endpoint serve locally", async () => {
     assert.equal(res.status, 200, path);
   }
 });
+
+test("the tunnel guard is not fooled by case or a trailing slash", async () => {
+  for (const path of ["/LIB/screen.js", "/Lib/image/presets.js", "/Playground.html", "/PLAYGROUND.HTML"]) {
+    const res = await fetch(`${base}${path}`, viaTunnel);
+    assert.equal(res.status, 404, path);
+  }
+  for (const path of ["/api/VDT", "/API/vdt", "/api/vdt/"]) {
+    const res = await fetch(`${base}${path}?cols=4&rows=2`, { ...viaTunnel, method: "POST", body: await grey() });
+    assert.equal(res.status, 404, path);
+  }
+});

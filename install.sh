@@ -25,7 +25,7 @@ if [ ! -f "$ENV_FILE" ]; then
   echo "Missing ${ENV_FILE}. Copy .env.example to .env and fill it in first." >&2
   exit 1
 fi
-env_value() { grep -E "^[[:space:]]*$1[[:space:]]*=" "$ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"\(.*\)"$/\1/'; }
+env_value() { { grep -E "^[[:space:]]*(export[[:space:]]+)?$1[[:space:]]*=" "$ENV_FILE" || true; } | tail -n 1 | cut -d= -f2- | tr -d '\r' | sed -e 's/[[:space:]]*#.*$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e "s/^[\"']\(.*\)[\"']\$/\1/"; }
 if [ -z "$(env_value PUBLIC_URL)" ]; then
   echo "PUBLIC_URL is empty in ${ENV_FILE}." >&2
   exit 1

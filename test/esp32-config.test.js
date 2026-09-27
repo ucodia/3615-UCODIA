@@ -9,9 +9,19 @@ import { parseEnv, websocketTarget, networksFrom, renderHeader } from "../bin/es
 
 const run = promisify(execFile);
 
+const FIXTURE = '# c\nA=1\r\nB="two words"\n\nC=x=y\n  D = spaced \nE=tok # comment\nF=\'single\'\nexport G=g\n';
+
 test("parseEnv reads key=value lines, ignores comments and blanks, strips quotes and CR", () => {
-  const env = parseEnv('# c\nA=1\r\nB="two words"\n\nC=x=y\n  D = spaced \n');
-  assert.deepEqual(env, { A: "1", B: "two words", C: "x=y", D: "spaced" });
+  assert.deepEqual(parseEnv(FIXTURE), { A: "1", B: "two words", C: "x=y", D: "spaced", E: "tok", F: "single", G: "g" });
+});
+
+test("parseEnv agrees with node --env-file, which the server uses", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "esp32env-"));
+  const file = join(dir, ".env");
+  await writeFile(file, FIXTURE);
+  const { stdout } = await run("node", [`--env-file=${file}`, "-p", 'JSON.stringify(["A","B","C","D","E","F","G"].map((k) => process.env[k]))']);
+  const parsed = parseEnv(FIXTURE);
+  assert.deepEqual(JSON.parse(stdout), ["A", "B", "C", "D", "E", "F", "G"].map((k) => parsed[k]));
 });
 
 test("websocketTarget derives host, port and tls from PUBLIC_URL", () => {

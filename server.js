@@ -19,7 +19,7 @@ export function isTunnelRequest(req) {
   return Boolean(req.headers["cf-connecting-ip"]);
 }
 
-const LOCAL_ONLY = /^\/(playground\.html|lib\/|api\/vdt$)/;
+const LOCAL_ONLY = /^\/(playground\.html|lib\/|api\/vdt\/?$)/i;
 
 export function selectProtocol(token) {
   if (!token) return () => false;

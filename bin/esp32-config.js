@@ -2,22 +2,13 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseEnv as nodeParseEnv } from "node:util";
 
 const DEFAULT_PORT = 3615;
 
+// the same parser node --env-file uses, so the firmware and the server read one value
 export function parseEnv(text) {
-  const env = {};
-  for (const rawLine of text.split("\n")) {
-    const line = rawLine.replace(/\r$/, "").trim();
-    if (!line || line.startsWith("#")) continue;
-    const eq = line.indexOf("=");
-    if (eq < 1) continue;
-    const key = line.slice(0, eq).trim();
-    let value = line.slice(eq + 1).trim();
-    if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1);
-    env[key] = value;
-  }
-  return env;
+  return nodeParseEnv(text);
 }
 
 export function websocketTarget(publicUrl) {
