@@ -63,3 +63,28 @@ test("lib mount does not expose the repo root", async () => {
     assert.equal(res.status, 404, path);
   }
 });
+
+const viaTunnel = { headers: { "cf-connecting-ip": "203.0.113.7" } };
+
+test("playground, lib and the conversion endpoint answer 404 through the tunnel", async () => {
+  for (const path of ["/playground.html", "/lib/screen.js", "/lib/image/presets.js"]) {
+    const res = await fetch(`${base}${path}`, viaTunnel);
+    assert.equal(res.status, 404, path);
+  }
+  const post = await fetch(`${base}/api/vdt?cols=4&rows=2`, { ...viaTunnel, method: "POST", body: await grey() });
+  assert.equal(post.status, 404);
+});
+
+test("the emulator and its library stay public through the tunnel", async () => {
+  for (const path of ["/", "/library/minitel.js"]) {
+    const res = await fetch(`${base}${path}`, viaTunnel);
+    assert.equal(res.status, 200, path);
+  }
+});
+
+test("playground, lib and the conversion endpoint serve locally", async () => {
+  for (const path of ["/playground.html", "/lib/screen.js", "/lib/image/presets.js"]) {
+    const res = await fetch(`${base}${path}`);
+    assert.equal(res.status, 200, path);
+  }
+});

@@ -15,6 +15,12 @@ function getClientIp(req) {
   );
 }
 
+export function isTunnelRequest(req) {
+  return Boolean(req.headers["cf-connecting-ip"]);
+}
+
+const LOCAL_ONLY = /^\/(playground\.html|lib\/|api\/vdt$)/;
+
 export function selectProtocol(token) {
   if (!token) return () => false;
   const expected = Buffer.from(token);
@@ -35,6 +41,14 @@ export function startServer(serviceHandler, port, { photoStore = null, sweepMs =
 
   app.use((req, res, next) => {
     logger.info(`[HTTP] ${req.method} ${req.path} - ${getClientIp(req)}`);
+    next();
+  });
+
+  app.use((req, res, next) => {
+    if (LOCAL_ONLY.test(req.path) && isTunnelRequest(req)) {
+      logger.warn(`[HTTP] local-only path refused through the tunnel - ${req.method} ${req.path} - ${getClientIp(req)}`);
+      return res.status(404).type("text").send("Not Found");
+    }
     next();
   });
 
