@@ -27,11 +27,12 @@ test("filters start with poster and cover every preset once", () => {
   assert.deepEqual([...FILTERS].sort(), ["halftone", "newsprint", "photo", "poster", "sketch", "smooth", "stencil", "stripes", "typewriter"]);
 });
 
-test("idle shows the prompt and a bar with SPACE and SOMMAIRE", () => {
+test("idle shows the prompt and a bar with SPACE only; the menu hint lives on the status row", () => {
   const s = renderIdle();
   assert.match(rowText(s, 12), /press space to capture/);
   const bar = rowText(s, 24);
-  assert.match(bar, /SPACE.*capture.*SOMMAIRE.*menu/);
+  assert.match(bar, /SPACE.*capture/);
+  assert.doesNotMatch(bar, /SOMMAIRE/);
   assert.doesNotMatch(bar, / F /);
   assert.equal(s.get(24, bar.indexOf("SPACE") + 1).inverse, true);
   assert.deepEqual(s.get(1, 1), DEFAULT_CELL);

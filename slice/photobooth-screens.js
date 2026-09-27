@@ -38,7 +38,7 @@ function centred(screen, row, text, attrs = { fg: BLANC }) {
 export function renderBar(screen, { captured }) {
   const segments = captured
     ? [[" SPACE ", " capture "], [" F ", " filter "], [" D ", " download"]]
-    : [[" SPACE ", " capture  "], [" SOMMAIRE ", " menu"]];
+    : [[" SPACE ", " capture "]];
   screen.fill(BAR_ROW, 1, BAR_ROW, COLS, { char: " " });
   let col = 1;
   for (const [key, meaning] of segments) {

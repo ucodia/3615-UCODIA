@@ -18,6 +18,11 @@ import {
 } from "./photobooth-screens.js";
 
 const COLS = 40;
+const NOTE_COL = 15; // right of the menu hint; the terminal owns columns 39 and 40 of row 0
+const NOTE_WIDTH = 23;
+const VERT = 2;
+const CYAN = 6;
+const BLANC = 7;
 const ROWS = 24;
 const COUNTDOWN_MS = 1000;
 
@@ -57,13 +62,37 @@ export function createPhotobooth({
     let index = 0;
     let lastKey = 0;
 
-    const show = async (screen) => {
+    let erase = null;
+    // the status row: the way back to the menu on the left, notifications on the right
+    const hint = async () => {
+      await m.pos(0, 1);
+      await m.color(CYAN);
+      await m.inverse();
+      await m.print("SOMMAIRE");
+      await m.inverse(0);
+      await m.color(VERT);
+      await m.print(" menu");
+      await m.color(BLANC);
+    };
+    const show = async (screen, { menuHint = true } = {}) => {
+      clearTimeout(erase);
       await m.home();
       await m.cls();
+      if (menuHint) await hint();
       await m.send(encode(screen));
     };
     const showPicture = () => show(renderPicture(shot.cells.get(FILTERS[index])));
-    const notify = (text, seconds = 2) => m.message(0, 1, seconds, text, true);
+    // erased by a timer so keys keep being read while it shows
+    const notify = async (text, seconds = 2) => {
+      clearTimeout(erase);
+      await m.pos(0, NOTE_COL);
+      await m.inverse();
+      await m.print(text.padEnd(NOTE_WIDTH));
+      await m.inverse(0);
+      erase = setTimeout(() => {
+        m.pos(0, NOTE_COL).then(() => m.plot(" ", NOTE_WIDTH)).catch(() => {});
+      }, seconds * 1000);
+    };
 
     async function capture() {
       for (const digit of [3, 2, 1]) {
@@ -97,7 +126,7 @@ export function createPhotobooth({
       }
       const url = `${publicUrl}/p/${name}`;
       log.info(`Photobooth: published ${url}`);
-      await show(renderQr(url, caption) || renderUrl(url));
+      await show(renderQr(url, caption) || renderUrl(url), { menuHint: false });
       const [, key] = await m.key();
       if (key === m.sommaire) return key;
       await showPicture();
@@ -115,16 +144,16 @@ export function createPhotobooth({
       } else if (letter === "F" && shot) {
         index = (index + 1) % FILTERS.length;
         await showPicture();
-        await notify(`applied ${FILTERS[index]} filter`);
       } else if (letter === "D" && shot) {
         if ((await download()) === m.sommaire) {
           lastKey = m.sommaire;
           break;
         }
       } else {
-        await notify("use keys at bottom of screen");
+        await notify("keys at the bottom");
       }
     }
+    clearTimeout(erase);
     return lastKey;
   };
 }

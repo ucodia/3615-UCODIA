@@ -22,7 +22,6 @@ function stubMinitel(script) {
     async inverse(v = 1) { calls.push(["inverse", v]); },
     async color(c) { calls.push(["color", c]); },
     async plot(ch, n) { calls.push(["plot", ch, n]); },
-    async message(row, col, delay, text) { calls.push(["message", text]); },
     press(char) { if (pending) { const r = pending; pending = null; r(char); } },
     async key() {
       calls.push(["key"]);
@@ -60,7 +59,16 @@ function harness(script, overrides = {}) {
   return { m, camera, store, renders, run: () => booth({}) };
 }
 const sends = (m) => m.calls.filter((c) => c[0] === "send").map((c) => c[1]);
-const messages = (m) => m.calls.filter((c) => c[0] === "message").map((c) => c[1]);
+const messages = (m) => {
+  let at = null;
+  const out = [];
+  for (const c of m.calls) {
+    if (c[0] === "pos") at = `${c[1]},${c[2]}`;
+    else if (c[0] === "print" && at === "0,15" && c[1].trim()) out.push(c[1].trim());
+  }
+  return out;
+};
+const hintDraws = (m) => m.calls.filter((c, i) => c[0] === "pos" && c[1] === 0 && c[2] === 1 && m.calls.slice(i, i + 4).some((n) => n[0] === "print" && n[1] === "SOMMAIRE")).length;
 
 test("hashOf is the first 8 hex chars of sha256", () => {
   assert.match(hashOf(JPEG), /^[0-9a-f]{7}$/);
@@ -83,19 +91,50 @@ test("space counts down, captures, converts and shows poster", async () => {
   assert.equal(s[s.length - 1], encode(renderPicture(fakeCells(1))));
 });
 
-test("f cycles filters with a notification and wraps", async () => {
+test("f cycles filters silently and wraps", async () => {
   const { m, run } = harness([" ", "f", "F", ...Array(7).fill("f"), 6]);
   await run();
-  assert.deepEqual(messages(m).slice(0, 2), ["applied photo filter", "applied halftone filter"]);
-  assert.equal(messages(m)[8], "applied poster filter");
+  assert.deepEqual(messages(m), [], "no notification on a filter change");
+  const pictures = sends(m).filter((s) => s === encode(renderPicture(fakeCells(2))));
+  assert.equal(pictures.length, 1, "photo shown once");
   assert.equal(sends(m).at(-1), encode(renderPicture(fakeCells(1))));
+});
+
+test("every screen carries the sommaire hint on the status row after the clear", async () => {
+  const { m, run } = harness([" ", "f", "d", "x", 6]);
+  await run();
+  const clears = m.calls.filter((c) => c[0] === "cls").length;
+  assert.ok(clears >= 6, "idle, countdown, smile, picture, qr, picture");
+  assert.equal(hintDraws(m), clears - 1, "one hint per cleared screen except the download page");
+  const qrAt = m.calls.findIndex((c) => c[0] === "send" && /\/p\//.test(c[1]));
+  const qrClear = m.calls.findLastIndex((c, i) => i < qrAt && c[0] === "cls");
+  const backAt = m.calls.findIndex((c, i) => i > qrAt && c[0] === "cls");
+  assert.ok(!m.calls.slice(qrClear, backAt).some((c) => c[0] === "print" && c[1] === "SOMMAIRE"), "no menu hint on the download page");
+  const firstSend = m.calls.findIndex((c) => c[0] === "send");
+  assert.ok(m.calls.slice(0, firstSend).some((c) => c[0] === "print" && c[1] === "SOMMAIRE"), "the hint goes out before the first screen's bytes");
+  for (const c of m.calls) if (c[0] === "print" && !c[1].startsWith("SOMMAIRE") && c[1] !== " menu") assert.ok(c[1].length <= 23, `notification fits left of the hint: ${JSON.stringify(c[1])}`);
+});
+
+test("the sommaire hint is not on the idle bar any more", async () => {
+  const { m, run } = harness([6]);
+  await run();
+  assert.equal(sends(m)[0], encode(renderIdle()));
+  assert.ok(!/SOMMAIRE/.test(sends(m)[0]), "the hint lives on the status row");
+});
+
+test("keys are read while a notification is still displayed", async () => {
+  const { m, run } = harness(["x", "x", 6]);
+  const result = await Promise.race([run(), new Promise((r) => setTimeout(() => r("hung"), 500))]);
+  assert.equal(result, 6, "the page waited for the notification to clear before reading the next key");
+  assert.deepEqual(messages(m), ["keys at the bottom", "keys at the bottom"]);
+  assert.ok(!m.calls.some((c) => c[0] === "plot" && c[1] === " "), "no erase was sent while keys kept coming");
 });
 
 test("d before capture only shows the hint", async () => {
   const { m, store, run } = harness(["d", "f", 6]);
   await run();
   assert.deepEqual(store.published, []);
-  assert.deepEqual(messages(m), ["use keys at bottom of screen", "use keys at bottom of screen"]);
+  assert.deepEqual(messages(m), ["keys at the bottom", "keys at the bottom"]);
 });
 
 test("d publishes once per filter, shows the qr and returns to the picture on a key", async () => {
@@ -107,7 +146,7 @@ test("d publishes once per filter, shows the qr and returns to the picture on a 
   assert.ok(shown.includes(`/p/${hash}`) && shown.includes("-photo.png"), "the last qr page names the photo file");
   assert.equal(renders.length, 2, "poster rendered once, photo once");
   assert.ok(shown.includes("scan to download - expires in 5 min"), "the caption is part of the qr page");
-  assert.ok(!m.calls.some((c) => c[0] === "pos" && c[1] === 0), "nothing is written on row 0");
+  assert.ok(!m.calls.some((c) => c[0] === "print" && /scan to download/.test(c[1])), "the caption is not a status-row print");
   assert.equal(sends(m).at(-1), encode(renderPicture(fakeCells(2))));
 });
 
