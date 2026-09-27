@@ -22,8 +22,9 @@
       input, select, button { font: inherit; min-width: 0; }
       input[type="number"], input[type="text"], select { width: 100%; box-sizing: border-box; }
       #file { width: 100%; }
-      #hint { color: #888; font-size: 12px; }
-      #status { white-space: pre-wrap; color: #bbb; }
+      #hint, #preset-hint { color: #888; font-size: 12px; }
+      #error { color: #f88; font-size: 12px; margin-top: 8px; }
+      #error[hidden] { display: none; }
     </style>
   </head>
   <body>
@@ -43,23 +44,24 @@
       <section>
         <h2>Image</h2>
         <input type="file" id="file" accept="image/*" />
-        <div id="hint">or drop / paste an image anywhere. Loading an image stops the camera.</div>
+        <div id="hint">or drop / paste an image anywhere</div>
       </section>
       <section>
         <h2>Settings</h2>
         <form id="settings">
           <label for="preset">preset</label>
-          <select name="preset" id="preset">
-            <option>photo</option><option>poster</option><option>halftone</option><option>newsprint</option><option>stencil</option>
+          <select id="preset">
+            <option>photo</option><option>poster</option><option>halftone</option><option>newsprint</option><option>stencil</option><option>custom</option>
           </select>
+          <div id="preset-hint" style="grid-column: 1 / -1"></div>
           <label for="method">method</label>
           <select name="method" id="method">
-            <option value="">preset default</option><option>flat</option><option>diffuse</option><option>bayer</option>
+            <option>flat</option><option>diffuse</option><option>bayer</option>
           </select>
           <label for="palette">palette</label>
-          <input name="palette" id="palette" type="text" placeholder="e.g. 0,4,7" />
+          <input name="palette" id="palette" type="text" />
           <label for="tone">tone</label>
-          <input name="tone" id="tone" type="number" min="0" step="0.5" placeholder="preset default" />
+          <input name="tone" id="tone" type="number" min="0" step="0.5" />
           <label for="levels">levels</label>
           <input name="levels" id="levels" type="checkbox" checked style="justify-self: start" />
           <label for="gamma">gamma</label>
@@ -81,11 +83,14 @@
         </form>
       </section>
       <section>
-        <button type="button" id="replay">replay at 4800 baud</button>
-      </section>
-      <section>
-        <h2>Status</h2>
-        <div id="status">No image yet.</div>
+        <div class="row">
+          <button type="button" id="replay" disabled>replay at 4800 baud</button>
+        </div>
+        <div class="row">
+          <button type="button" id="save" disabled>save .vdt</button>
+          <button type="button" id="save-png" disabled>save .png</button>
+        </div>
+        <div id="error" hidden></div>
       </section>
     </aside>
     <script type="module">
@@ -94,14 +99,58 @@
       import { paint } from "/lib/image/paint.js";
       import { parseOptions } from "/lib/image/options.js";
       import { prepareCanvas } from "/lib/image/prepare-browser.js";
+      import { PRESETS } from "/lib/image/presets.js";
 
       const [emulator] = Minitel.startEmulators();
       const form = document.getElementById("settings");
-      const status = document.getElementById("status");
+      const errorLine = document.getElementById("error");
+      const replayButton = document.getElementById("replay");
+      const saveButton = document.getElementById("save");
+      const savePngButton = document.getElementById("save-png");
+      const screenCanvas = document.querySelector(".minitel-screen");
+
+      function fail(message) {
+        errorLine.textContent = message;
+        errorLine.hidden = false;
+      }
       const stage = document.getElementById("stage");
       const video = document.getElementById("video");
       const cameraToggle = document.getElementById("camera-toggle");
       const serverBox = document.getElementById("server");
+      const presetSelect = document.getElementById("preset");
+      const presetHint = document.getElementById("preset-hint");
+      const fields = { method: form.elements.method, palette: form.elements.palette, tone: form.elements.tone };
+      const DESCRIPTIONS = {
+        photo: "error diffusion over all greys: smooth tones, film-like grain",
+        poster: "no dither, all greys: clean flat areas, some banding",
+        halftone: "ordered dither over all greys: screen-print dot texture",
+        newsprint: "black and white only, diffused: newspaper halftone",
+        stencil: "black, 40% and white, no dither: three-tone stencil",
+        custom: "your own method, palette and tone",
+      };
+
+      // the preset select only loads values; the fields always show what is in use
+      function applyPreset(name) {
+        const preset = PRESETS[name];
+        fields.method.value = preset.method;
+        fields.palette.value = preset.palette.join(",");
+        fields.tone.value = preset.toneWeight;
+        presetHint.textContent = DESCRIPTIONS[name];
+      }
+
+      function matchingPreset() {
+        return Object.keys(PRESETS).find((name) => {
+          const preset = PRESETS[name];
+          return fields.method.value === preset.method
+            && fields.palette.value.replace(/\s/g, "") === preset.palette.join(",")
+            && Number(fields.tone.value) === preset.toneWeight;
+        }) || "custom";
+      }
+
+      function syncPreset() {
+        presetSelect.value = matchingPreset();
+        presetHint.textContent = DESCRIPTIONS[presetSelect.value];
+      }
       const frameCanvas = document.createElement("canvas");
       let source = null; // { name, file, bitmap } for an image, { name, camera: true } for the webcam
       let bytes = null;
@@ -111,14 +160,17 @@
       function rawOptions() {
         const data = new FormData(form);
         const raw = {};
-        for (const [key, value] of data) if (value !== "" && key !== "levels" && key !== "server") raw[key] = value;
+        for (const [key, value] of data) if (key !== "levels" && key !== "server") raw[key] = value;
         raw.levels = data.has("levels") ? "true" : "false";
         return raw;
       }
 
-      function show(name, result, path) {
+      function show(name, result) {
         bytes = result;
-        status.textContent = `${name} via ${path}: ${bytes.length} bytes, ${(bytes.length / 480).toFixed(1)} s at 4800 baud`;
+        errorLine.hidden = true;
+        replayButton.disabled = Boolean(stream);
+        saveButton.disabled = false;
+        savePngButton.disabled = false;
         emulator.directSend([0x0c, ...bytes]);
       }
 
@@ -153,9 +205,9 @@
         try {
           const options = parseOptions(raw);
           const result = serverBox.checked ? await convertServer(raw) : convertLocal(options);
-          if (mine === generation) show(name, result, serverBox.checked ? "server" : "browser");
+          if (mine === generation) show(name, result);
         } catch (error) {
-          if (mine === generation) status.textContent = `Error: ${error.message}`;
+          if (mine === generation) fail(error.message);
         }
       }
 
@@ -170,18 +222,19 @@
 
       async function startCamera() {
         if (!navigator.mediaDevices?.getUserMedia) {
-          status.textContent = "Camera needs a secure context: open the page on localhost or over HTTPS.";
+          fail("Camera needs a secure context: open the page on localhost or over HTTPS.");
           return;
         }
         try {
           stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 } }, audio: false });
         } catch (error) {
-          status.textContent = `Camera error: ${error.message}`;
+          fail(`Camera error: ${error.message}`);
           return;
         }
         video.srcObject = stream;
         video.hidden = false;
         cameraToggle.textContent = "stop camera";
+        replayButton.disabled = true;
         await new Promise((resolve) => video.addEventListener("loadeddata", resolve, { once: true }));
         source = { name: "camera", camera: true };
         liveLoop();
@@ -195,6 +248,7 @@
         video.hidden = true;
         cameraToggle.textContent = "start camera";
         if (source?.camera) source = null;
+        replayButton.disabled = !bytes;
       }
 
       // JPEG of the mirrored camera frame, for the server path only
@@ -234,14 +288,55 @@
         stage.classList.remove("over");
         load(e.dataTransfer.files[0]);
       });
-      form.addEventListener("change", convert);
-      document.getElementById("replay").addEventListener("click", () => {
+      form.addEventListener("change", (e) => {
+        if (e.target !== presetSelect) syncPreset();
+        convert();
+      });
+      presetSelect.addEventListener("change", () => {
+        if (presetSelect.value !== "custom") applyPreset(presetSelect.value);
+        else presetHint.textContent = DESCRIPTIONS.custom;
+      });
+      applyPreset("photo");
+      replayButton.addEventListener("click", () => {
         if (!bytes) return;
         emulator.directSend([0x0c]);
         emulator.send(bytes);
       });
+      function fileBase() {
+        return `${(source?.name || "image").replace(/\.[^.]+$/, "")}-${presetSelect.value}`;
+      }
+
+      function download(blob, filename) {
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(link.href);
+      }
+
+      // the 24 screen rows without the status row, scaled 4x with crisp pixels
+      function renderPng() {
+        const scale = 4;
+        const rowHeight = screenCanvas.height / 25;
+        const out = document.createElement("canvas");
+        out.width = screenCanvas.width * scale;
+        out.height = rowHeight * 24 * scale;
+        const ctx = out.getContext("2d");
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(screenCanvas, 0, rowHeight, screenCanvas.width, rowHeight * 24, 0, 0, out.width, out.height);
+        return new Promise((resolve) => out.toBlob(resolve, "image/png"));
+      }
+
+      saveButton.addEventListener("click", () => {
+        if (!bytes) return;
+        download(new Blob([Uint8Array.from(bytes)], { type: "application/octet-stream" }), `${fileBase()}.vdt`);
+      });
+      savePngButton.addEventListener("click", async () => {
+        if (!bytes) return;
+        download(await renderPng(), `${fileBase()}.png`);
+      });
       cameraToggle.addEventListener("click", () => (stream ? stopCamera() : startCamera()));
-      window.playground = { load, convert, startCamera }; // for headless checks
+      window.playground = { load, convert, startCamera, renderPng }; // for headless checks
     </script>
   </body>
 </html>

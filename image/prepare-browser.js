@@ -29,7 +29,7 @@ export function prepareCanvas(source, cols, rows, { position = "centre", levels 
   const height = rows * 3;
   target.width = width;
   target.height = height;
-  const tctx = target.getContext("2d");
+  const tctx = target.getContext("2d", { willReadFrequently: true });
   tctx.imageSmoothingQuality = "high";
   tctx.drawImage(stage, 0, 0, width, height);
   const { data } = tctx.getImageData(0, 0, width, height);
