@@ -14,7 +14,8 @@ const QR_MAX_URL = 78; // version 4 at level L
 const QR_ROWS = 21; // rows 1 and 2 hold the caption and the url, 3..23 the code, 24 the back hint
 
 export const FILTERS = Object.freeze([
-  "poster", "photo", "halftone", "smooth", "newsprint", "stripes", "sketch", "stencil", "typewriter",
+  "poster", "photo", "halftone", "newsprint", "stripes", "typewriter",
+  // "smooth", "sketch", "stencil",
 ]);
 
 // short names for download urls, so a production url fits a version 3 code

@@ -44,7 +44,7 @@ Playground: run `npm run dev` and open `http://localhost:3615/playground.html`. 
 
 ## Photobooth
 
-Menu key `P`. The server takes a still from the webcam with ffmpeg (the `ffmpeg-static` package ships the binary for macOS and Linux arm64), converts it to every look, and shows it on the Minitel. Keys: `SPACE` capture (after a 3, 2, 1 countdown), `F` next filter, `D` download, `SOMMAIRE` back to the menu. `D` renders the current look as a 1280 by 960 PNG, publishes it for five minutes and shows a QR code pointing at `PUBLIC_URL/p/<hash>-<code>.png`, where the hash is the first 7 hex characters of the SHA-256 of the shot and the code is a short filter name (`poster`, `photo`, `half`, `smooth`, `news`, `stripe`, `sketch`, `stencil`, `type`). Files live in `data/photobooth` and are purged at startup.
+Menu key `P`. The server takes a still from the webcam with ffmpeg (the `ffmpeg-static` package ships the binary for macOS and Linux arm64), converts it to every look, and shows it on the Minitel. Keys: `SPACE` capture (after a 3, 2, 1 countdown), `F` next filter (poster, photo, halftone, newsprint, stripes, typewriter), `D` download, `SOMMAIRE` back to the menu. `D` renders the current look as a 1280 by 960 PNG, publishes it for five minutes and shows a QR code pointing at `PUBLIC_URL/p/<hash>-<code>.png`, where the hash is the first 7 hex characters of the SHA-256 of the shot and the code is a short filter name (`poster`, `photo`, `half`, `news`, `stripe`, `type`). Files live in `data/photobooth` and are purged at startup.
 
 | variable            | default                                   |
 |---------------------|-------------------------------------------|

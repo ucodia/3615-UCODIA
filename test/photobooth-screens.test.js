@@ -24,7 +24,7 @@ const mosaicCount = (screen) => {
 
 test("filters start with poster and cover every preset once", () => {
   assert.equal(FILTERS[0], "poster");
-  assert.deepEqual([...FILTERS].sort(), ["halftone", "newsprint", "photo", "poster", "sketch", "smooth", "stencil", "stripes", "typewriter"]);
+  assert.deepEqual([...FILTERS], ["poster", "photo", "halftone", "newsprint", "stripes", "typewriter"]);
 });
 
 test("idle shows the prompt and a bar with SPACE only; the menu hint lives on the status row", () => {

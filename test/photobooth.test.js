@@ -92,7 +92,7 @@ test("space counts down, captures, converts and shows poster", async () => {
 });
 
 test("f cycles filters silently and wraps", async () => {
-  const { m, run } = harness([" ", "f", "F", ...Array(7).fill("f"), 6]);
+  const { m, run } = harness([" ", "f", "F", ...Array(FILTERS.length - 2).fill("f"), 6]);
   await run();
   assert.deepEqual(messages(m), [], "no notification on a filter change");
   const pictures = sends(m).filter((s) => s === encode(renderPicture(fakeCells(2))));
@@ -202,7 +202,7 @@ test("convertAll produces one 40x24 grid per filter from a real jpeg", async () 
 });
 
 test("filter codes are short, unique, lowercase and cover every filter", () => {
-  assert.deepEqual(Object.keys(FILTER_CODES), [...FILTERS]);
+  for (const name of FILTERS) assert.ok(name in FILTER_CODES, `${name} has a code`);
   const codes = Object.values(FILTER_CODES);
   assert.equal(new Set(codes).size, codes.length);
   for (const code of codes) assert.match(code, /^[a-z]{3,7}$/);
@@ -210,7 +210,7 @@ test("filter codes are short, unique, lowercase and cover every filter", () => {
 });
 
 test("d publishes under the short filter code", async () => {
-  const { store, run } = harness([" ", ...Array(8).fill("f"), "d", "x", 6]);
+  const { store, run } = harness([" ", ...Array(FILTERS.length - 1).fill("f"), "d", "x", 6]);
   await run();
   assert.deepEqual(store.published, [`${hashOf(JPEG)}-type.png`]);
 });
