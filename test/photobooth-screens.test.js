@@ -69,22 +69,21 @@ test("smile is a centred message", () => {
   assert.match(rowText(renderSmile(), 12), /smile/);
 });
 
-test("qr page draws the code above the url on a white ground and falls back to text for long urls", () => {
-  const url = "https://slice.ucodia.space/p/0123abc-stencil.png";
+test("qr page: caption, centred url, code, back hint; text fallback for long urls", () => {
+  const url = "https://slice.ucodia.space/p/0123abc-photo.png";
   const s = renderQr(url, "scan to download - expires in 5 min");
   assert.ok(s, "fits");
   assert.equal(rowText(s, 1).trim(), "scan to download - expires in 5 min", "caption on row 1");
   assert.deepEqual([s.get(1, 1).inverse, s.get(1, 1).mosaic], [true, false], "caption in inverse text");
-  assert.equal(s.get(2, 1).bg, 7, "white quiet zone");
+  assert.equal(rowText(s, 2), " slice.ucodia.space/p/0123abc-photo.png ", "url under the caption, scheme dropped, centred");
+  assert.deepEqual([s.get(2, 1).inverse, s.get(2, 1).fg, s.get(2, 1).bg], [true, 7, 0], "inverse on default colours: black text on white");
   assert.ok(mosaicCount(s) > 400);
-  const blankRow = (r) => Array.from({ length: 40 }, (_, c) => s.get(r, c + 1)).every((cell) => cell.mosaic && cell.char === 0);
-  assert.ok(blankRow(2) && !blankRow(3) && !blankRow(22) && blankRow(23), "a version 3 code sits on rows 3 to 22 with a blank row above and below");
-  const v4 = renderQr("https://3615.ucodia.space/photobooth/0123abcd-typewriter.png", "caption");
-  assert.ok(v4, "a version 4 url still fits by dropping the margin");
-  assert.equal(rowText(v4, 24).trim(), "3615.ucodia.space/photobooth/0123abcd-typewriter.png".slice(0, 40), "a long url is cut to the row");
-  for (let c = 1; c <= 40; c++) assert.equal(s.get(24, c).mosaic, false, "row 24 holds the url");
-  assert.equal(rowText(s, 24).trim(), "slice.ucodia.space/p/0123abc-stencil.png", "scheme dropped, one line");
-  assert.deepEqual([s.get(24, 1).inverse, s.get(24, 1).fg, s.get(24, 1).bg], [true, 7, 0], "inverse on default colours: black text on white");
+  const codeRows = Array.from({ length: 24 }, (_, i) => i + 1).filter((r) => Array.from({ length: 40 }, (_, c) => s.get(r, c + 1)).some((cell) => cell.mosaic && cell.char !== 0));
+  assert.deepEqual([codeRows[0], codeRows.at(-1)], [3, 22], "a version 3 code's modules run from row 3 to 22");
+  assert.ok(Array.from({ length: 40 }, (_, c) => s.get(23, c + 1)).every((cell) => cell.mosaic && cell.char === 0 && cell.bg === 7), "row 23 is the white quiet zone above the hint");
+  assert.equal(rowText(s, 24), "        press any key to go back        ", "back hint centred on row 24");
+  assert.equal(s.get(24, 1).inverse, true);
+  assert.equal(renderQr("https://3615.ucodia.space/photobooth/0123abcd-typewriter.png", "caption"), null, "a version 4 code no longer fits between the text rows");
   assert.equal(renderQr("https://a-very-long-hostname.example.com/photobooth/0123abcd-typewriter.png?x=1234567", "caption"), null);
   const t = renderUrl(url);
   assert.match(rowText(t, 12) + rowText(t, 13), /slice\.ucodia\.space/);
