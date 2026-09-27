@@ -14,7 +14,7 @@ function getClientIp(req) {
   );
 }
 
-export function startServer(serviceHandler, port) {
+export function startServer(serviceHandler, port, { photoStore = null, sweepMs = 60000 } = {}) {
   const app = express();
   const server = http.createServer(app);
   const wss = new WebSocketServer({ server });
@@ -26,6 +26,17 @@ export function startServer(serviceHandler, port) {
   });
 
   app.post("/api/vdt", express.raw({ type: () => true, limit: "10mb" }), vdtHandler);
+  if (photoStore) {
+    app.get("/photobooth/:name", async (req, res) => {
+      const file = await photoStore.get(req.params.name);
+      if (!file) {
+        res.status(404).type("text").send("Not found");
+        return;
+      }
+      res.type("png").sendFile(file);
+    });
+  }
+
   app.use("/lib/image", express.static(path.join(__dirname, "image")));
   for (const file of ["screen.js", "mosaic.js"]) {
     app.get(`/lib/${file}`, (req, res) => res.sendFile(path.join(__dirname, file)));
@@ -57,8 +68,15 @@ export function startServer(serviceHandler, port) {
     });
   }, 60000);
 
+  const sweeper = photoStore
+    ? setInterval(() => {
+        photoStore.sweep().catch((error) => logger.warn(`[Photobooth] sweep failed: ${error.message}`));
+      }, sweepMs)
+    : null;
+
   wss.on("close", () => {
     clearInterval(interval);
+    if (sweeper) clearInterval(sweeper);
   });
 
   wss.on("error", (error) => {
