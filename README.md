@@ -53,6 +53,8 @@ Copy `.env.example` to `.env` and fill it in. The file is ignored by git and rea
 | `WIFI_SSID_n`, `WIFI_PASSWORD_n` | networks the ESP32 tries in order, numbered from 1 |
 | `PHOTOBOOTH_*` | optional, see the photobooth section |
 
+To test the terminal pages from a browser, open the emulator with the token in the url, `http://localhost:3615/?token=<TERMINAL_TOKEN>`: the page offers it as the websocket subprotocol and the server treats that browser as the terminal. Outside production the server prints that url at startup. The token then sits in the browser history, so do this on your own machine only.
+
 ### Who gets what
 
 The emulator page and the download route are public. A websocket connection presenting `TERMINAL_TOKEN` is the gallery terminal and is the only one offered the photobooth, so the webcam next to the Minitel can only be triggered from the Minitel. Everyone else sees the menu without it. The playground, the `/lib` modules and `POST /api/vdt` are local tools: requests arriving through the Cloudflare tunnel (they carry `cf-connecting-ip`) get a 404, so they work at `http://localhost:3615` and on the LAN only. This assumes the tunnel is the only public path to the server.

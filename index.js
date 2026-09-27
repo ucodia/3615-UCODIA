@@ -105,6 +105,9 @@ async function welcomePage(websocket, req, { terminal = false } = {}) {
   const token = terminalToken();
   if (!token) logger.warn("TERMINAL_TOKEN is unset or shorter than 32 characters: no connection can use the photobooth");
   startServer(welcomePage, 3615, { photoStore, terminalToken: token });
+  if (token && process.env.NODE_ENV !== "production") {
+    logger.info(`Emulator as the terminal (token in the url, not logged in production): http://localhost:3615/?token=${token}`);
+  }
 })().catch((err) => {
   console.error("Server error:", err);
   process.exit(1);

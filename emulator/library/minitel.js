@@ -4759,7 +4759,9 @@ Minitel.Emulator = class {
       const proto = location.protocol === "https:" ? "wss:" : "ws:";
       socketURL = `${proto}//${location.host}`;
     }
-    this.socket = socketURL ? new WebSocket(socketURL) : undefined;
+    // ?token=... offers the terminal token as the subprotocol, so a local browser can test the terminal pages
+    const token = urlParams.get("token");
+    this.socket = socketURL ? (token ? new WebSocket(socketURL, token) : new WebSocket(socketURL)) : undefined;
 
     if (this.socket) {
       this.socket.onopen = () => {
