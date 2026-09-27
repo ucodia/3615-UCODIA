@@ -1,8 +1,9 @@
 import { PRESETS } from "./presets.js";
+import { FILTERS } from "./pipeline.js";
 
 export class OptionError extends Error {}
 
-const METHODS = ["flat", "diffuse", "bayer"];
+const METHODS = ["flat", "diffuse", "bayer", "noise", "dot", "text"];
 const POSITIONS = ["centre", "top", "right", "bottom", "left", "entropy", "attention"];
 
 function integer(raw, name, min, max, fallback) {
@@ -67,6 +68,7 @@ export function parseOptions(raw = {}) {
     position: choice(raw.position, "position", POSITIONS, "centre"),
     levels: boolean(raw.levels, "levels", true),
     gamma: positive(raw.gamma, "gamma", 1, { allowZero: false }),
+    filter: choice(raw.filter, "filter", FILTERS, base.filter),
     quantise,
   };
 }

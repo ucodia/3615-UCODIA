@@ -147,3 +147,36 @@ test("a full screen quantises within budget", () => {
   const ms = performance.now() - start;
   assert.ok(ms < 120, `took ${ms.toFixed(0)} ms`);
 });
+
+test("noise dithers a mid-gap value between its neighbours with an even mean", () => {
+  const f = field(64, 48, () => 0.2);
+  const cells = quantise(f, { method: "noise", toneWeight: 0 });
+  const values = new Set(cells.flat().flatMap((c) => renderCell(c)));
+  assert.deepEqual([...values].sort(), [0, 0.4]);
+  const avg = mean(cells.flat().map((c) => mean(renderCell(c))));
+  assert.ok(Math.abs(avg - 0.2) < 0.03, `mean ${avg}`);
+});
+
+test("dot grows ink in the fixed order from paper to full", () => {
+  const tones = [1, 0.8, 0.65, 0.5, 0.35, 0.2, 0];
+  const f = field(14, 3, (x) => tones[Math.floor(x / 2)]);
+  const cells = quantise(f, { method: "dot", palette: [0, 7] });
+  const expected = [0, 0b000100, 0b001100, 0b001101, 0b101101, 0b101111, 0b111111];
+  cells[0].forEach((cell, i) => {
+    assert.equal(cell.bits, expected[i], `tone ${tones[i]}`);
+    assert.equal(cell.fg, 0);
+    assert.equal(cell.bg, 7);
+  });
+});
+
+test("dot uses the darkest and lightest greys of the palette", () => {
+  const f = field(2, 3, () => 0.5);
+  const [[cell]] = quantise(f, { method: "dot", palette: [4, 2, 6] });
+  assert.equal(cell.fg, 4);
+  assert.equal(cell.bg, 6);
+});
+
+test("dot with one grey paints flat cells", () => {
+  const f = field(4, 3, () => 0.5);
+  for (const cell of quantise(f, { method: "dot", palette: [2] })[0]) assert.deepEqual(cell, { bits: 0, fg: 2, bg: 2 });
+});

@@ -12,7 +12,7 @@ function sizeOf(source) {
   return { width, height };
 }
 
-export function prepareCanvas(source, cols, rows, { position = "centre", levels = true, gamma = 1, mirror = false } = {}) {
+export function prepareCanvas(source, cols, rows, { position = "centre", levels = true, gamma = 1, mirror = false, cell = [2, 3] } = {}) {
   const src = sizeOf(source);
   const { sx, sy, sw, sh } = coverRect(src.width, src.height, cols * 8, rows * 10, position);
   stage.width = cols * 8;
@@ -25,8 +25,8 @@ export function prepareCanvas(source, cols, rows, { position = "centre", levels 
   if (mirror) sctx.setTransform(-1, 0, 0, 1, stage.width, 0);
   sctx.drawImage(source, sx, sy, sw, sh, 0, 0, stage.width, stage.height);
 
-  const width = cols * 2;
-  const height = rows * 3;
+  const width = cols * cell[0];
+  const height = rows * cell[1];
   target.width = width;
   target.height = height;
   const tctx = target.getContext("2d", { willReadFrequently: true });

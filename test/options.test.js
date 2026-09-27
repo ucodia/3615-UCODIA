@@ -5,7 +5,7 @@ import { parseOptions, OptionError } from "../image/options.js";
 test("defaults fill the full screen with the photo preset", () => {
   const o = parseOptions({});
   assert.deepEqual(o, {
-    cols: 40, rows: 24, row: 1, col: 1, preset: "photo", position: "centre", levels: true, gamma: 1,
+    cols: 40, rows: 24, row: 1, col: 1, preset: "photo", position: "centre", levels: true, gamma: 1, filter: "none",
     quantise: { method: "diffuse", palette: [0, 1, 2, 3, 4, 5, 6, 7], toneWeight: 2 },
   });
 });
@@ -34,4 +34,12 @@ test("garbage is rejected with OptionError", () => {
   ]) {
     assert.throws(() => parseOptions(raw), OptionError, JSON.stringify(raw));
   }
+});
+
+test("new methods and the filter are accepted", () => {
+  for (const method of ["noise", "dot", "text"]) assert.equal(parseOptions({ method }).quantise.method, method);
+  assert.equal(parseOptions({ filter: "edges" }).filter, "edges");
+  assert.equal(parseOptions({ preset: "sketch" }).filter, "edges");
+  assert.equal(parseOptions({ preset: "sketch", filter: "none" }).filter, "none");
+  assert.throws(() => parseOptions({ filter: "blur" }), OptionError);
 });

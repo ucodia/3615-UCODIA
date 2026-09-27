@@ -3,9 +3,9 @@ import { rgbToField } from "./field.js";
 
 const MAX_PIXELS = 40_000_000;
 
-export async function prepare(source, cols, rows, { position = "centre", levels = true, gamma = 1, maxPixels = MAX_PIXELS } = {}) {
-  const width = cols * 2;
-  const height = rows * 3;
+export async function prepare(source, cols, rows, { position = "centre", levels = true, gamma = 1, maxPixels = MAX_PIXELS, cell = [2, 3] } = {}) {
+  const width = cols * cell[0];
+  const height = rows * cell[1];
   // sharp keeps only the last resize of a pipeline, so crop and resample are two pipelines
   const cropped = await sharp(source, { limitInputPixels: maxPixels })
     .flatten({ background: "#000000" })

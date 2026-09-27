@@ -1,11 +1,16 @@
 import { ALL_COLOURS } from "./levels.js";
 
+const BW = Object.freeze([0, 7]);
+
 export const PRESETS = Object.freeze({
-  photo: Object.freeze({ method: "diffuse", palette: ALL_COLOURS, toneWeight: 2 }),
-  poster: Object.freeze({ method: "flat", palette: ALL_COLOURS, toneWeight: 0 }),
-  halftone: Object.freeze({ method: "bayer", palette: ALL_COLOURS, toneWeight: 0 }),
-  newsprint: Object.freeze({ method: "diffuse", palette: Object.freeze([0, 7]), toneWeight: 2 }),
-  stencil: Object.freeze({ method: "flat", palette: Object.freeze([0, 4, 7]), toneWeight: 0 }),
+  photo: Object.freeze({ method: "diffuse", palette: ALL_COLOURS, toneWeight: 2, filter: "none" }),
+  poster: Object.freeze({ method: "flat", palette: ALL_COLOURS, toneWeight: 0, filter: "none" }),
+  halftone: Object.freeze({ method: "bayer", palette: ALL_COLOURS, toneWeight: 0, filter: "none" }),
+  newsprint: Object.freeze({ method: "noise", palette: BW, toneWeight: 0, filter: "none" }),
+  stencil: Object.freeze({ method: "flat", palette: Object.freeze([0, 4, 7]), toneWeight: 0, filter: "none" }),
+  stripes: Object.freeze({ method: "dot", palette: BW, toneWeight: 0, filter: "none" }),
+  sketch: Object.freeze({ method: "flat", palette: ALL_COLOURS, toneWeight: 0, filter: "edges" }),
+  typewriter: Object.freeze({ method: "text", palette: ALL_COLOURS, toneWeight: 0, filter: "none" }),
 });
 
 export function preset(name) {

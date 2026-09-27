@@ -1,4 +1,5 @@
 import { LEVELS, ALL_COLOURS, mean, renderCell } from "./levels.js";
+import { blueNoise } from "./noise.js";
 
 const DEFAULTS = Object.freeze({
   method: "diffuse",
@@ -61,16 +62,21 @@ function strip({ bits, fg, bg }) {
   return { bits, fg, bg };
 }
 
-function flat(field, options) {
+// Map every cell's six target values through fn.
+function grid(field, fn) {
   const cols = field.width / 2;
   const rows = field.height / 3;
   const cells = [];
   for (let cy = 0; cy < rows; cy++) {
     const line = [];
-    for (let cx = 0; cx < cols; cx++) line.push(strip(fitCell(cellTarget(field, cx, cy), options)));
+    for (let cx = 0; cx < cols; cx++) line.push(fn(cellTarget(field, cx, cy)));
     cells.push(line);
   }
   return cells;
+}
+
+function flat(field, options) {
+  return grid(field, (target) => strip(fitCell(target, options)));
 }
 
 // Floyd-Steinberg with the neighbourhood in cell units: the residual of
@@ -132,7 +138,8 @@ function paletteLevels(palette) {
   return [...new Set(palette.map((i) => LEVELS[i]))].sort((a, b) => a - b);
 }
 
-function bayer(field, options) {
+// Ordered dither onto the palette's levels with any threshold function, then a flat fit.
+function ordered(field, options, threshold) {
   const { width, height } = field;
   const levels = paletteLevels(options.palette);
   const data = new Float32Array(width * height);
@@ -149,14 +156,32 @@ function bayer(field, options) {
         }
       }
       const position = hi === lo ? 0 : (v - lo) / (hi - lo);
-      const threshold = (BAYER8[y % 8][x % 8] + 0.5) / 64;
-      data[y * width + x] = position > threshold ? hi : lo;
+      data[y * width + x] = position > threshold(x, y) ? hi : lo;
     }
   }
   return flat({ width, height, data }, options);
 }
 
-const METHODS = { flat, diffuse, bayer };
+const bayer = (field, options) => ordered(field, options, (x, y) => (BAYER8[y % 8][x % 8] + 0.5) / 64);
+const noise = (field, options) => ordered(field, options, blueNoise());
+
+const GROWTH = [2, 3, 0, 5, 1, 4];
+const DOT_PATTERNS = Array.from({ length: 7 }, (_, k) => GROWTH.slice(0, k).reduce((bits, i) => bits | (1 << i), 0));
+
+// Stripe dots: ink grows in a fixed order as the cell darkens, between the palette's extremes.
+function dot(field, options) {
+  const byLevel = [...options.palette].sort((a, b) => LEVELS[a] - LEVELS[b]);
+  const ink = byLevel[0];
+  const paper = byLevel[byLevel.length - 1];
+  const range = LEVELS[paper] - LEVELS[ink];
+  return grid(field, (target) => {
+    if (range === 0) return { bits: 0, fg: ink, bg: ink };
+    const k = Math.round(((LEVELS[paper] - mean(target)) / range) * 6);
+    return { bits: DOT_PATTERNS[Math.min(6, Math.max(0, k))], fg: ink, bg: paper };
+  });
+}
+
+const METHODS = { flat, diffuse, bayer, noise, dot };
 
 export function quantise(field, options = {}) {
   const opts = { ...DEFAULTS, ...options };

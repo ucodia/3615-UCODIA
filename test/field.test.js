@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { stretch, rgbToField, coverRect } from "../image/field.js";
+import { stretch, rgbToField, coverRect, edges } from "../image/field.js";
 
 test("stretch maps the 1st and 99th percentiles to 0 and 1", () => {
   const data = Float32Array.from({ length: 1000 }, (_, i) => 0.25 + (i / 999) * 0.5);
@@ -63,4 +63,32 @@ test("coverRect crops a tall source vertically by anchor", () => {
 
 test("coverRect rejects anchors the canvas path cannot do", () => {
   assert.throws(() => coverRect(100, 100, 320, 240, "attention"), /position/);
+});
+
+function fieldOf(width, height, fn) {
+  const data = new Float32Array(width * height);
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) data[y * width + x] = fn(x, y);
+  return { width, height, data };
+}
+
+test("edges lights a vertical step and nothing far from it", () => {
+  const f = edges(fieldOf(40, 12, (x) => (x < 20 ? 0 : 1)));
+  assert.equal(f.width, 40);
+  const row = (x) => f.data[6 * 40 + x];
+  assert.ok(row(19) > 0.9 && row(20) > 0.9, `edge ${row(19)} ${row(20)}`);
+  assert.ok(row(5) < 0.05 && row(35) < 0.05, `flat ${row(5)} ${row(35)}`);
+  for (const v of f.data) assert.ok(v >= 0 && v <= 1);
+});
+
+test("edges of a flat field is zero", () => {
+  const f = edges(fieldOf(16, 12, () => 0.5));
+  for (const v of f.data) assert.equal(v, 0);
+});
+
+test("edges stays within [0, 1] when the 98th percentile is zero", () => {
+  const f = edges(fieldOf(80, 72, (x, y) => (x >= 40 && x < 46 && y >= 30 && y < 36 ? 1 : 0)));
+  let max = 0;
+  for (const v of f.data) max = Math.max(max, v);
+  assert.ok(max > 0, "the square still has edges");
+  assert.ok(max <= 1, `max ${max}`);
 });

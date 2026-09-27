@@ -37,3 +37,17 @@ test("painted cells encode to valid mosaic glyphs only", () => {
   assert.ok(payload.length > 0);
   for (const g of payload) assert.ok((g >= 0x20 && g <= 0x3f) || (g >= 0x60 && g <= 0x7f), `glyph ${g.toString(16)}`);
 });
+
+test("paint writes text cells with a black background", () => {
+  const s = new Screen(24, 40);
+  paint(s, 3, 4, [[{ char: "A", fg: 2, bg: 0 }]]);
+  assert.deepEqual(s.get(3, 4), { ...DEFAULT_CELL, char: "A", fg: 2, bg: 0, mosaic: false });
+});
+
+test("text cells encode with foreground only", () => {
+  const s = new Screen(1, 3);
+  paint(s, 1, 1, [[{ char: "A", fg: 2, bg: 0 }, { char: "B", fg: 7, bg: 0 }, { char: " ", fg: 3, bg: 0 }]]);
+  const out = encode(s);
+  assert.ok(!out.includes("\x1bP") && !out.includes("\x1bW"), "no background attribute");
+  assert.ok(out.includes("\x1bB") && out.includes("A"));
+});

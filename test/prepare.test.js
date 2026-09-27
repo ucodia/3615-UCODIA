@@ -80,3 +80,10 @@ test("prepare accepts a single-channel image", async () => {
   const f = await prepare(src, 2, 1, { levels: false });
   for (const v of f.data) assert.ok(Math.abs(v - 200 / 255) < 0.01, `got ${v}`);
 });
+
+test("prepare samples 8x10 per cell when asked", async () => {
+  const src = await png(320, 240, (x) => Math.round((x / 319) * 255));
+  const f = await prepare(src, 40, 24, { cell: [8, 10] });
+  assert.equal(f.width, 320);
+  assert.equal(f.height, 240);
+});

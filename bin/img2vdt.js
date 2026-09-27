@@ -11,8 +11,9 @@ program
   .option("--rows <n>", "cell rows", "24")
   .option("--row <n>", "screen row of the top-left cell", "1")
   .option("--col <n>", "screen column of the top-left cell", "1")
-  .option("--preset <name>", "photo, poster, halftone, newsprint or stencil", "photo")
-  .option("--method <name>", "flat, diffuse or bayer (overrides the preset)")
+  .option("--preset <name>", "photo, poster, halftone, newsprint, stencil, stripes, sketch or typewriter", "photo")
+  .option("--method <name>", "flat, diffuse, bayer, noise, dot or text (overrides the preset)")
+  .option("--filter <name>", "none or edges (overrides the preset)")
   .option("--palette <list>", "allowed colour indices, e.g. 0,4,7 (overrides the preset)")
   .option("--tone <weight>", "mean tone weight (overrides the preset)")
   .option("--no-levels", "skip percentile auto levels")
@@ -32,6 +33,7 @@ try {
     method: opts.method,
     palette: opts.palette,
     tone: opts.tone,
+    filter: opts.filter,
     levels: opts.levels,
     gamma: opts.gamma,
     position: opts.position,

@@ -51,17 +51,21 @@
         <form id="settings">
           <label for="preset">preset</label>
           <select id="preset">
-            <option>photo</option><option>poster</option><option>halftone</option><option>newsprint</option><option>stencil</option><option>custom</option>
+            <option>photo</option><option>poster</option><option>halftone</option><option>newsprint</option><option>stencil</option><option>stripes</option><option>sketch</option><option>typewriter</option><option>custom</option>
           </select>
           <div id="preset-hint" style="grid-column: 1 / -1"></div>
           <label for="method">method</label>
           <select name="method" id="method">
-            <option>flat</option><option>diffuse</option><option>bayer</option>
+            <option>flat</option><option>diffuse</option><option>bayer</option><option>noise</option><option>dot</option><option>text</option>
           </select>
           <label for="palette">palette</label>
           <input name="palette" id="palette" type="text" />
           <label for="tone">tone</label>
           <input name="tone" id="tone" type="number" min="0" step="0.5" />
+          <label for="filter">filter</label>
+          <select name="filter" id="filter">
+            <option>none</option><option>edges</option>
+          </select>
           <label for="levels">levels</label>
           <input name="levels" id="levels" type="checkbox" checked style="justify-self: start" />
           <label for="gamma">gamma</label>
@@ -95,7 +99,7 @@
     </aside>
     <script type="module">
       import { Screen, encode } from "/lib/screen.js";
-      import { quantise } from "/lib/image/quantise.js";
+      import { cellSize, applyFilter, toCells } from "/lib/image/pipeline.js";
       import { paint } from "/lib/image/paint.js";
       import { parseOptions } from "/lib/image/options.js";
       import { prepareCanvas } from "/lib/image/prepare-browser.js";
@@ -119,14 +123,17 @@
       const serverBox = document.getElementById("server");
       const presetSelect = document.getElementById("preset");
       const presetHint = document.getElementById("preset-hint");
-      const fields = { method: form.elements.method, palette: form.elements.palette, tone: form.elements.tone };
+      const fields = { method: form.elements.method, palette: form.elements.palette, tone: form.elements.tone, filter: form.elements.filter };
       const DESCRIPTIONS = {
         photo: "error diffusion over all greys: smooth tones, film-like grain",
         poster: "no dither, all greys: clean flat areas, some banding",
         halftone: "ordered dither over all greys: screen-print dot texture",
-        newsprint: "black and white only, diffused: newspaper halftone",
+        newsprint: "blue-noise dither in black and white: newspaper grain",
         stencil: "black, 40% and white, no dither: three-tone stencil",
-        custom: "your own method, palette and tone",
+        stripes: "ink stripes grow as the tone darkens: black on white",
+        sketch: "edge magnitude in greys, no dither: drawn outline",
+        typewriter: "the Minitel's own characters as grey ink on black",
+        custom: "your own method, palette, tone and filter",
       };
 
       // the preset select only loads values; the fields always show what is in use
@@ -135,6 +142,7 @@
         fields.method.value = preset.method;
         fields.palette.value = preset.palette.join(",");
         fields.tone.value = preset.toneWeight;
+        fields.filter.value = preset.filter;
         presetHint.textContent = DESCRIPTIONS[name];
       }
 
@@ -143,7 +151,8 @@
           const preset = PRESETS[name];
           return fields.method.value === preset.method
             && fields.palette.value.replace(/\s/g, "") === preset.palette.join(",")
-            && Number(fields.tone.value) === preset.toneWeight;
+            && Number(fields.tone.value) === preset.toneWeight
+            && fields.filter.value === preset.filter;
         }) || "custom";
       }
 
@@ -177,13 +186,14 @@
       function convertLocal(options) {
         if (!source.camera && !source.bitmap) throw new Error("The browser cannot decode this image; tick \"server\" to convert it with sharp.");
         const drawable = source.camera ? video : source.bitmap;
-        const field = prepareCanvas(drawable, options.cols, options.rows, {
+        const prepared = prepareCanvas(drawable, options.cols, options.rows, {
           position: options.position,
           levels: options.levels,
           gamma: options.gamma,
           mirror: Boolean(source.camera),
+          cell: cellSize(options.quantise.method),
         });
-        const cells = quantise(field, options.quantise);
+        const cells = toCells(applyFilter(prepared, options.filter), options.quantise);
         const screen = new Screen(24, 40);
         paint(screen, options.row, options.col, cells);
         return Array.from(encode(screen), (c) => c.charCodeAt(0));

@@ -33,3 +33,15 @@ test("every preset converts", async () => {
 test("convert rejects a non-image buffer", async () => {
   await assert.rejects(convert(Buffer.from("not an image"), { cols: 2, rows: 1 }));
 });
+
+test("convert renders text cells", async () => {
+  const { cells, bytes, field } = await convert(await gradient(), { method: "text", cols: 4, rows: 2 });
+  assert.equal(field.width, 32);
+  assert.ok("char" in cells[0][0]);
+  assert.ok(bytes.length > 0);
+});
+
+test("convert accepts a filter", async () => {
+  const { bytes } = await convert(await gradient(), { preset: "sketch", cols: 4, rows: 2 });
+  assert.ok(bytes.length > 0);
+});

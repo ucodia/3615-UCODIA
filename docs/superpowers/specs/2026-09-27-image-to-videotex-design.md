@@ -215,6 +215,23 @@ Visual checks happen in the playground, not in tests.
 
 The playground now converts in the browser by default. `image/prepare.js` was split: `image/field.js` holds the pure core (Rec. 601 luminance, percentile levels, gamma, cover-crop geometry) and both the sharp front end and a canvas front end, `image/prepare-browser.js`, call it. `server.js` serves `image/`, `screen.js` and `mosaic.js` under `/lib` for the page. A "server" checkbox routes the same options through `POST /api/vdt` for comparison. Measured on portraits, the two paths differ by about 1 percent per subpixel before quantising and are visually equivalent; diffusion presets differ cell for cell because the dither pattern is chaotic. The endpoint and CLI keep the sharp path for the photobooth, but their colour handling changed with this split: node no longer uses libvips' linear-light greyscale and instead applies the shared gamma-space Rec. 601 luminance, so colour input renders differently from before (pure red goes from 0.50 to 0.30 lightness; greyscale input is unchanged). The playground offers only the five geometric crop anchors.
 
+## Amendment 2026-09-27: more looks
+
+Two quantise methods were added: `noise`, ordered dither through a 64 by 64 void-and-cluster blue-noise matrix generated once from a fixed seed (`image/noise.js`), and `dot`, stripe dots that grow in the order `[2, 3, 0, 5, 1, 4]` between the darkest and lightest greys of the palette. A field filter option, `edges` (blurred Sobel magnitude normalised to its 98th percentile), lives in the field core and runs after levels and gamma. A text mode, method `text`, samples 8 by 10 per cell and matches each block against the 95 glyphs of the emulator's G0 font, extracted into `image/glyphs.js` by `bin/extract-glyphs.js`; cells are `{ char, fg, bg: 0 }`, so no background attribute is ever emitted. `image/pipeline.js` holds the shared branching (cell size, filter, mosaic or text) used by `convert` and the playground.
+
+| preset     | method  | palette | toneWeight | filter |
+|------------|---------|---------|------------|--------|
+| photo      | diffuse | all     | 2          | none   |
+| poster     | flat    | all     | 0          | none   |
+| halftone   | bayer   | all     | 0          | none   |
+| newsprint  | noise   | 0, 7    | 0          | none   |
+| stencil    | flat    | 0, 4, 7 | 0          | none   |
+| stripes    | dot     | 0, 7    | 0          | none   |
+| sketch     | flat    | all     | 0          | edges  |
+| typewriter | text    | all     | 0          | none   |
+
+Separated (disjoint) mosaics are supported by the hardware through ESC 0x5A in graphics mode and looked promising in the exploration probe, but they need a new cell attribute in the encoder and a check on the real tube, so they stay a follow-up.
+
 ## Follow-ups, not in this spec
 
 - Grey ramp calibration screen to measure the real tube's levels.
