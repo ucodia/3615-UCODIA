@@ -173,12 +173,13 @@ test("capture failure shows a message and stays idle", async () => {
   assert.equal(sends(m).at(-1), encode(renderIdle()));
 });
 
-test("sommaire on the qr page leaves the page at once", async () => {
-  const { m, run } = harness([" ", "d", 6]);
+test("sommaire on the qr page returns to the picture; a second one leaves", async () => {
+  const { m, run } = harness([" ", "d", 6, 6]);
   const result = await Promise.race([run(), new Promise((r) => setTimeout(() => r("hung"), 500))]);
-  assert.equal(result, 6, "the page kept waiting for a key after sommaire");
+  assert.equal(result, 6, "the page kept waiting for a key");
   const keys = m.calls.filter((c) => c[0] === "key").length;
-  assert.equal(keys, 3, "no extra key read after sommaire");
+  assert.equal(keys, 4, "sommaire on the qr page is consumed, the next one leaves");
+  assert.equal(sends(m).at(-1), encode(renderPicture(fakeCells(1))), "back on the picture before leaving");
   m.press(6);
 });
 

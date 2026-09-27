@@ -36,7 +36,7 @@ index.js                   menu entry "P  photobooth"
 2. **SPACE.** Ignore if a capture is in progress. Draw 3, then 2, then 1 as large mosaic digits centred on the black screen, one per second, then "smile" on row 12. Capture. Hash. Convert every preset at 40 by 24 (`convertField` on the shared pipeline, one `prepare` at each cell size, so two sharp passes, nine quantise passes). Show the current filter, starting at poster, and the full bar: `SPACE` capture, `F` filter, `D` download.
 3. **F.** Advance to the next preset, wrapping. Redraw the picture and the bar, no notification. Other notifications (stray key, camera or download failure) print on row 0 from column 15 and are erased by a timer while keys keep being read. Row 0 also carries `SOMMAIRE menu` in its top-left corner on every screen but the download page (columns 39 and 40 belong to the terminal's connection indicator), redrawn after each clear, so the idle bar shows `SPACE capture` only.
 4. **D.** Render the PNG for the current preset if not cached in the session, publish it, show the QR page: the code drawn in mosaic on rows 1 to 24, caption on row 0 `scan to download, 5 min`. Any key returns to the picture. If the URL is longer than 78 bytes (QR version 4 at level L), show the URL as text on rows 10 to 14 instead of a code.
-5. **SOMMAIRE** leaves from any state; the session's captures are dropped. Any other key: `use keys at bottom of screen` on row 0.
+5. **SOMMAIRE** leaves from the idle and picture screens; the session's captures are dropped. On the download page every key, SOMMAIRE included, returns to the picture. Any other key: `keys at the bottom` on row 0.
 
 ## Camera
 

@@ -127,10 +127,8 @@ export function createPhotobooth({
       const url = `${publicUrl}/p/${name}`;
       log.info(`Photobooth: published ${url}`);
       await show(renderQr(url, caption) || renderUrl(url), { menuHint: false });
-      const [, key] = await m.key();
-      if (key === m.sommaire) return key;
+      await m.key();
       await showPicture();
-      return 0;
     }
 
     await show(renderIdle());
@@ -145,10 +143,7 @@ export function createPhotobooth({
         index = (index + 1) % FILTERS.length;
         await showPicture();
       } else if (letter === "D" && shot) {
-        if ((await download()) === m.sommaire) {
-          lastKey = m.sommaire;
-          break;
-        }
+        await download();
       } else {
         await notify("keys at the bottom");
       }
