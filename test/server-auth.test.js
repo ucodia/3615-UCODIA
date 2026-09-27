@@ -71,3 +71,10 @@ test("without a configured token everyone is public", async () => {
     assert.deepEqual(seen.map((s) => s.terminal), [false]);
   });
 });
+
+test("startupUrls uses the public url when given and localhost otherwise", async () => {
+  const { startupUrls } = await import("../server.js");
+  assert.deepEqual(startupUrls(3615), { emulator: "http://localhost:3615", websocket: "ws://localhost:3615" });
+  assert.deepEqual(startupUrls(3615, "https://slice.example.com/"), { emulator: "https://slice.example.com", websocket: "wss://slice.example.com" });
+  assert.deepEqual(startupUrls(3615, "http://minitelpi:3615"), { emulator: "http://minitelpi:3615", websocket: "ws://minitelpi:3615" });
+});

@@ -21,6 +21,11 @@ export function isTunnelRequest(req) {
 
 const LOCAL_ONLY = /^\/(playground\.html|lib\/|api\/vdt\/?$)/i;
 
+export function startupUrls(port, publicUrl = null) {
+  const emulator = publicUrl ? publicUrl.replace(/\/+$/, "") : `http://localhost:${port}`;
+  return { emulator, websocket: emulator.replace(/^http/, "ws") };
+}
+
 export function selectProtocol(token) {
   if (!token) return () => false;
   const expected = Buffer.from(token);
@@ -33,7 +38,7 @@ export function selectProtocol(token) {
   };
 }
 
-export function startServer(serviceHandler, port, { photoStore = null, sweepMs = 60000, terminalToken = null } = {}) {
+export function startServer(serviceHandler, port, { photoStore = null, sweepMs = 60000, terminalToken = null, publicUrl = null } = {}) {
   const app = express();
   const server = http.createServer(app);
   const wss = new WebSocketServer({ server, handleProtocols: selectProtocol(terminalToken) });
@@ -120,8 +125,9 @@ export function startServer(serviceHandler, port, { photoStore = null, sweepMs =
   });
 
   server.listen(port, () => {
-    logger.info(`WebSocket server started at: ws://localhost:${port}`);
-    logger.info(`Emulator server started at: http://localhost:${port}`);
+    const urls = startupUrls(port, publicUrl);
+    logger.info(`WebSocket server started at: ${urls.websocket}`);
+    logger.info(`Emulator server started at: ${urls.emulator}`);
   });
 
   return { server, wss };
