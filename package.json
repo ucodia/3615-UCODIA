@@ -4,8 +4,8 @@
   "description": "The Internet of the future past 🌈",
   "type": "module",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
+    "start": "node --env-file-if-exists=.env index.js",
+    "dev": "nodemon --exec \"node --env-file-if-exists=.env\" index.js",
     "test": "node --test"
   },
   "keywords": [
