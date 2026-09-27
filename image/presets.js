@@ -11,6 +11,7 @@ export const PRESETS = Object.freeze({
   stripes: Object.freeze({ method: "dot", palette: BW, toneWeight: 0, filter: "none" }),
   sketch: Object.freeze({ method: "flat", palette: ALL_COLOURS, toneWeight: 0, filter: "edges" }),
   typewriter: Object.freeze({ method: "text", palette: ALL_COLOURS, toneWeight: 0, filter: "none" }),
+  smooth: Object.freeze({ method: "flat", palette: ALL_COLOURS, toneWeight: 0, filter: "median" }),
 });
 
 export function preset(name) {

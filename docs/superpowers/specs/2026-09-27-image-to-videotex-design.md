@@ -217,7 +217,7 @@ The playground now converts in the browser by default. `image/prepare.js` was sp
 
 ## Amendment 2026-09-27: more looks
 
-Two quantise methods were added: `noise`, ordered dither through a 64 by 64 void-and-cluster blue-noise matrix generated once from a fixed seed (`image/noise.js`), and `dot`, stripe dots that grow in the order `[2, 3, 0, 5, 1, 4]` between the darkest and lightest greys of the palette. A field filter option, `edges` (blurred Sobel magnitude normalised to its 98th percentile), lives in the field core and runs after levels and gamma. A text mode, method `text`, samples 8 by 10 per cell and matches each block against the 95 glyphs of the emulator's G0 font, extracted into `image/glyphs.js` by `bin/extract-glyphs.js`; cells are `{ char, fg, bg: 0 }`, so no background attribute is ever emitted. `image/pipeline.js` holds the shared branching (cell size, filter, mosaic or text) used by `convert` and the playground.
+Two quantise methods were added: `noise`, ordered dither through a 64 by 64 void-and-cluster blue-noise matrix generated once from a fixed seed (`image/noise.js`), and `dot`, stripe dots that grow in the order `[2, 3, 0, 5, 1, 4]` between the darkest and lightest greys of the palette. Field filter options `edges` (blurred Sobel magnitude normalised to its 98th percentile) and `median` (3 by 3 median) live in the field core and runs after levels and gamma. A text mode, method `text`, samples 8 by 10 per cell and matches each block against the 95 glyphs of the emulator's G0 font, extracted into `image/glyphs.js` by `bin/extract-glyphs.js`; cells are `{ char, fg, bg: 0 }`, so no background attribute is ever emitted. `image/pipeline.js` holds the shared branching (cell size, filter, mosaic or text) used by `convert` and the playground.
 
 | preset     | method  | palette | toneWeight | filter |
 |------------|---------|---------|------------|--------|
@@ -229,6 +229,7 @@ Two quantise methods were added: `noise`, ordered dither through a 64 by 64 void
 | stripes    | dot     | 0, 7    | 0          | none   |
 | sketch     | flat    | all     | 0          | edges  |
 | typewriter | text    | all     | 0          | none   |
+| smooth     | flat    | all     | 0          | median |
 
 Separated (disjoint) mosaics are supported by the hardware through ESC 0x5A in graphics mode and looked promising in the exploration probe, but they need a new cell attribute in the encoder and a check on the real tube, so they stay a follow-up.
 

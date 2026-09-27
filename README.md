@@ -31,7 +31,7 @@ sudo systemctl daemon-reload
 
 ## Image converter
 
-`image/` turns a raster image into greyscale Minitel cells. Eight looks are available as presets: `photo` (error diffusion), `poster` (no dither), `halftone` (Bayer), `newsprint` (blue-noise dither in black and white), `stencil` (three tones), `stripes` (ink stripes that grow with darkness), `sketch` (edge magnitude, no dither) and `typewriter` (the Minitel character set as grey text on black). Presets bundle a method (`flat`, `diffuse`, `bayer`, `noise`, `dot`, `text`), a palette, a tone weight and a filter (`none`, `edges`); each can be overridden.
+`image/` turns a raster image into greyscale Minitel cells. Eight looks are available as presets: `photo` (error diffusion), `poster` (no dither), `halftone` (Bayer), `newsprint` (blue-noise dither in black and white), `stencil` (three tones), `stripes` (ink stripes that grow with darkness), `sketch` (edge magnitude, no dither), `typewriter` (the Minitel character set as grey text on black) and `smooth` (3x3 median then poster). Presets bundle a method (`flat`, `diffuse`, `bayer`, `noise`, `dot`, `text`), a palette, a tone weight and a filter (`none`, `edges`, `median`); each can be overridden.
 
 Command line:
 

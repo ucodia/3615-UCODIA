@@ -51,7 +51,7 @@
         <form id="settings">
           <label for="preset">preset</label>
           <select id="preset">
-            <option>photo</option><option>poster</option><option>halftone</option><option>newsprint</option><option>stencil</option><option>stripes</option><option>sketch</option><option>typewriter</option><option>custom</option>
+            <option>photo</option><option>poster</option><option>halftone</option><option>newsprint</option><option>stencil</option><option>stripes</option><option>sketch</option><option>typewriter</option><option>smooth</option><option>custom</option>
           </select>
           <div id="preset-hint" style="grid-column: 1 / -1"></div>
           <label for="method">method</label>
@@ -64,7 +64,7 @@
           <input name="tone" id="tone" type="number" min="0" step="0.5" />
           <label for="filter">filter</label>
           <select name="filter" id="filter">
-            <option>none</option><option>edges</option>
+            <option>none</option><option>edges</option><option>median</option>
           </select>
           <label for="levels">levels</label>
           <input name="levels" id="levels" type="checkbox" checked style="justify-self: start" />
@@ -133,6 +133,7 @@
         stripes: "ink stripes grow as the tone darkens: black on white",
         sketch: "edge magnitude in greys, no dither: drawn outline",
         typewriter: "the Minitel's own characters as grey ink on black",
+        smooth: "3x3 median then poster: clean flat areas without speckle",
         custom: "your own method, palette, tone and filter",
       };
 

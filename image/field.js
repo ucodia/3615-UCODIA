@@ -77,3 +77,23 @@ export function edges(field) {
   const data = magnitude.map((v) => Math.min(1, top > 0 ? v / top : v));
   return { width: field.width, height: field.height, data };
 }
+
+// 3x3 median: removes isolated specks while keeping edges in place.
+export function median({ width, height, data }) {
+  const out = new Float32Array(width * height);
+  const window = new Float32Array(9);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let n = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = Math.min(width - 1, Math.max(0, x + dx));
+          const yy = Math.min(height - 1, Math.max(0, y + dy));
+          window[n++] = data[yy * width + xx];
+        }
+      }
+      out[y * width + x] = window.slice().sort()[4];
+    }
+  }
+  return { width, height, data: out };
+}

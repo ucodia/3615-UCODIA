@@ -22,3 +22,10 @@ test("toCells dispatches to text or mosaic", () => {
   assert.ok("char" in text[0][0]);
   assert.equal(text[0].length, 2);
 });
+
+test("applyFilter median smooths a speck", () => {
+  const data = new Float32Array(96).fill(0.5);
+  data[3 * 16 + 8] = 1;
+  const m = applyFilter({ width: 16, height: 6, data }, "median");
+  assert.equal(m.data[3 * 16 + 8], 0.5);
+});

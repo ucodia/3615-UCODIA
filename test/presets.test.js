@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { PRESETS, preset } from "../image/presets.js";
 
 test("the five looks exist with the documented settings", () => {
-  assert.deepEqual(Object.keys(PRESETS), ["photo", "poster", "halftone", "newsprint", "stencil", "stripes", "sketch", "typewriter"]);
+  assert.deepEqual(Object.keys(PRESETS), ["photo", "poster", "halftone", "newsprint", "stencil", "stripes", "sketch", "typewriter", "smooth"]);
   assert.equal(preset("photo").method, "diffuse");
   assert.equal(preset("photo").toneWeight, 2);
   assert.equal(preset("poster").method, "flat");
@@ -16,7 +16,9 @@ test("the five looks exist with the documented settings", () => {
   assert.equal(preset("sketch").filter, "edges");
   assert.equal(preset("sketch").method, "flat");
   assert.equal(preset("typewriter").method, "text");
-  for (const p of Object.values(PRESETS)) assert.ok(["none", "edges"].includes(p.filter));
+  assert.equal(preset("smooth").filter, "median");
+  assert.equal(preset("smooth").method, "flat");
+  for (const p of Object.values(PRESETS)) assert.ok(["none", "edges", "median"].includes(p.filter));
 });
 
 test("unknown preset throws", () => {
