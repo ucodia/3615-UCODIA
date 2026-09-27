@@ -42,6 +42,19 @@ node bin/img2vdt.js photo.jpg --preset poster --filter edges --palette 0,7 --out
 
 Playground: run `npm run dev` and open `http://localhost:3615/playground.html`. Drop, paste or pick an image, or start the webcam for a live feed, change settings and watch the result in the emulator. Loading an image stops the camera. Conversion runs in the browser with the same `image/` modules node uses, except that a canvas does the resampling instead of sharp; tick "server" to convert through `POST /api/vdt` instead and compare. That endpoint takes a raw image body and the same options as the CLI as query parameters. Colour is reduced to grey with Rec. 601 luminance on both sides. "Replay at 4800 baud" shows the reveal at link speed. The camera needs localhost or HTTPS.
 
+## Photobooth
+
+Menu key `P`. The server takes a still from the webcam with ffmpeg (the `ffmpeg-static` package ships the binary for macOS and Linux arm64), converts it to every look, and shows it on the Minitel. Keys: `SPACE` capture (after a 3, 2, 1 countdown), `F` next filter, `D` download, `SOMMAIRE` back to the menu. `D` renders the current look as a 1280 by 960 PNG, publishes it for five minutes and shows a QR code pointing at `PUBLIC_URL/photobooth/<hash>-<filter>.png`, where the hash is the first 8 hex characters of the SHA-256 of the shot. Files live in `data/photobooth` and are purged at startup.
+
+| variable            | default                                   |
+|---------------------|-------------------------------------------|
+| `PHOTOBOOTH_DEVICE` | `0` on macOS, `/dev/video0` on Linux. On macOS an index or a name fragment such as `FaceTime` |
+| `PHOTOBOOTH_FFMPEG` | the `ffmpeg-static` binary                |
+| `PUBLIC_URL`        | `http://localhost:3615`                   |
+| `PHOTOBOOTH_TTL`    | `300` seconds                             |
+
+At startup the camera's modes are listed and the largest 4:3 mode up to 1920 wide is used. On a Pi, add the service user to the `video` group so `/dev/video0` is readable, and set `PUBLIC_URL` to the public hostname so the QR code works from a phone.
+
 ## Notes
 
 ### 2026-09-17 - Broken keyboard keys

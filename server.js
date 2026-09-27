@@ -28,12 +28,13 @@ export function startServer(serviceHandler, port, { photoStore = null, sweepMs =
   app.post("/api/vdt", express.raw({ type: () => true, limit: "10mb" }), vdtHandler);
   if (photoStore) {
     app.get("/photobooth/:name", async (req, res) => {
-      const file = await photoStore.get(req.params.name);
-      if (!file) {
-        res.status(404).type("text").send("Not found");
-        return;
+      try {
+        const file = await photoStore.get(req.params.name);
+        if (!file) throw new Error("unknown or expired");
+        await new Promise((resolve, reject) => res.type("png").sendFile(file, (error) => (error ? reject(error) : resolve())));
+      } catch (error) {
+        if (!res.headersSent) res.status(404).type("text").send("Not found");
       }
-      res.type("png").sendFile(file);
     });
   }
 

@@ -50,3 +50,17 @@ test("the sweeper removes expired entries in the background", async () => {
   await new Promise((r) => setTimeout(r, 60));
   assert.equal(store.expires.has("abcdef01-photo.png"), false);
 });
+
+test("a store error answers 404 instead of hanging", async () => {
+  const broken = { get: async () => { throw new Error("disk gone"); }, sweep: async () => 0 };
+  const { server: s2, wss: w2 } = startServer(() => {}, 0, { photoStore: broken, sweepMs: 100000 });
+  await once(s2, "listening");
+  try {
+    const res = await fetch(`http://127.0.0.1:${s2.address().port}/photobooth/0123abcd-poster.png`, { signal: AbortSignal.timeout(1000) });
+    assert.equal(res.status, 404);
+  } finally {
+    w2.close();
+    s2.closeAllConnections();
+    await new Promise((resolve) => s2.close(resolve));
+  }
+});

@@ -39,3 +39,11 @@ test("the bitmap fits the 80x72 mosaic pixel screen", () => {
   assert.ok(bitmap.length <= 72);
   assert.ok(bitmap[0].length <= 80);
 });
+
+test("a lower error correction level gives a smaller code for a long URL", () => {
+  const url = "https://3615.ucodia.space/photobooth/0123abcd-typewriter.png";
+  const m = qrBitmap(url, { scale: 1, margin: 0 });
+  const l = qrBitmap(url, { scale: 1, margin: 0, errorCorrectionLevel: "L" });
+  assert.ok(l.length <= m.length, `${l.length} vs ${m.length}`);
+  assert.equal(l.length, 33, "version 4 at level L");
+});

@@ -3,13 +3,27 @@ import { startServer } from "./server.js";
 import { sliceSchedule } from "./slice/schedule.js";
 import { omeletteFacts } from "./slice/omelette.js";
 import { venablesVibes } from "./slice/venables.js";
+import { createPhotobooth } from "./slice/photobooth.js";
+import { Camera } from "./photobooth/camera.js";
+import { PhotoStore } from "./photobooth/store.js";
+import { photoboothConfig } from "./photobooth/config.js";
 import logger from "./logger.js";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+
+const config = photoboothConfig();
+const camera = new Camera({ ffmpeg: config.ffmpeg, device: config.device });
+const photoStore = new PhotoStore({
+  dir: join(dirname(fileURLToPath(import.meta.url)), "data", "photobooth"),
+  ttlMs: config.ttl * 1000,
+});
 
 const programs = [
   { key: "1", title: "exhibits calendar", handoff: (ws) => sliceSchedule(ws, "exhibits") },
   { key: "2", title: "workshops calendar", handoff: (ws) => sliceSchedule(ws, "workshops") },
   { key: "3", title: "omelette facts", handoff: omeletteFacts },
   { key: "V", title: "venables vibes", handoff: venablesVibes },
+  { key: "P", title: "photobooth", handoff: createPhotobooth({ camera, store: photoStore, publicUrl: config.publicUrl }) },
 ];
 
 // Welcome page handler
@@ -74,7 +88,18 @@ async function welcomePage(websocket) {
 
 // Start the welcome page server
 (async function () {
-  startServer(welcomePage, 3615);
+  try {
+    await photoStore.purge();
+  } catch (error) {
+    logger.warn(`Photobooth store purge failed: ${error.message}`);
+  }
+  try {
+    const mode = await camera.probe();
+    logger.info(`Photobooth camera ${config.device}: ${mode ? `${mode.width}x${mode.height}` : "default mode"}`);
+  } catch (error) {
+    logger.warn(`Photobooth camera probe failed: ${error.message}`);
+  }
+  startServer(welcomePage, 3615, { photoStore });
 })().catch((err) => {
   console.error("Server error:", err);
   process.exit(1);

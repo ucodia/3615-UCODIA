@@ -1,7 +1,7 @@
 import QRCode from "qrcode";
 
-export function qrBitmap(text, { scale = 2, margin = 2 } = {}) {
-  const { modules } = QRCode.create(text, { errorCorrectionLevel: "M" });
+export function qrBitmap(text, { scale = 2, margin = 2, errorCorrectionLevel = "M" } = {}) {
+  const { modules } = QRCode.create(text, { errorCorrectionLevel });
   const side = (modules.size + 2 * margin) * scale;
   const bitmap = [];
   for (let y = 0; y < side; y++) {
