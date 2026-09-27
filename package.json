@@ -6,7 +6,11 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env index.js",
     "dev": "nodemon --exec \"node --env-file-if-exists=.env\" index.js",
-    "test": "node --test"
+    "test": "node --test",
+    "esp32:config": "node bin/esp32-config.js",
+    "esp32:build": "npm run esp32:config && arduino-cli compile --fqbn esp32:esp32:esp32 esp32/client",
+    "esp32:flash": "npm run esp32:build && arduino-cli upload --fqbn esp32:esp32:esp32 -p ${ESP32_PORT:-/dev/cu.usbserial-0001} esp32/client",
+    "esp32:monitor": "arduino-cli monitor -p ${ESP32_PORT:-/dev/cu.usbserial-0001} -c baudrate=115200"
   },
   "keywords": [
     "minitel",

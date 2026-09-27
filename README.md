@@ -13,7 +13,7 @@ git pull
 ./install.sh
 ```
 
-This installs production dependencies (skipped when `package-lock.json` and the Node version are unchanged since the last install), asks for the public URL the photobooth QR codes should point at (default `https://slice.ucodia.space`, press Enter to accept), writes `/etc/systemd/system/slice.service` pointing at this repo with that URL as `PUBLIC_URL`, enables it at boot and restarts it.
+This installs production dependencies (skipped when `package-lock.json` and the Node version are unchanged since the last install), checks that `.env` exists with a `PUBLIC_URL`, writes `/etc/systemd/system/slice.service` pointing at this repo and loading `.env`, enables it at boot and restarts it.
 
 ```sh
 systemctl status slice       # state
@@ -42,6 +42,21 @@ node bin/img2vdt.js photo.jpg --preset poster --filter edges --palette 0,7 --out
 
 Playground: run `npm run dev` and open `http://localhost:3615/playground.html`. Drop, paste or pick an image, or start the webcam for a live feed, change settings and watch the result in the emulator. Loading an image stops the camera. Conversion runs in the browser with the same `image/` modules node uses, except that a canvas does the resampling instead of sharp; tick "server" to convert through `POST /api/vdt` instead and compare. That endpoint takes a raw image body and the same options as the CLI as query parameters. Colour is reduced to grey with Rec. 601 luminance on both sides. "Replay at 4800 baud" shows the reveal at link speed. The camera needs localhost or HTTPS.
 
+## Configuration
+
+Copy `.env.example` to `.env` and fill it in. The file is ignored by git and read by the server (`npm start`, `npm run dev` and the service load it with Node's `--env-file-if-exists`, Node 22.9 or later), by `install.sh` and by the ESP32 build. Shell variables override it.
+
+| key | meaning |
+| --- | --- |
+| `PUBLIC_URL` | public base URL, used for download links and as the ESP32's websocket target |
+| `TERMINAL_TOKEN` | shared secret the ESP32 presents as its websocket subprotocol; at least 32 characters, `openssl rand -hex 32` |
+| `WIFI_SSID_n`, `WIFI_PASSWORD_n` | networks the ESP32 tries in order, numbered from 1 |
+| `PHOTOBOOTH_*` | optional, see the photobooth section |
+
+### Who gets what
+
+The emulator page and the download route are public. A websocket connection presenting `TERMINAL_TOKEN` is the gallery terminal and is the only one offered the photobooth, so the webcam next to the Minitel can only be triggered from the Minitel. Everyone else sees the menu without it. The playground, the `/lib` modules and `POST /api/vdt` are local tools: requests arriving through the Cloudflare tunnel (they carry `cf-connecting-ip`) get a 404, so they work at `http://localhost:3615` and on the LAN only. This assumes the tunnel is the only public path to the server.
+
 ## Photobooth
 
 Menu key `P`. The server takes a still from the webcam with ffmpeg (the `ffmpeg-static` package ships the binary for macOS and Linux arm64), converts it to every look, and shows it on the Minitel. Keys: `SPACE` capture (after a 3, 2, 1 countdown), `F` next filter (poster, photo, halftone, newsprint, stripes, typewriter), `D` download, `SOMMAIRE` back to the menu. `D` renders the current look as a 1280 by 960 PNG, publishes it for five minutes and shows a QR code pointing at `PUBLIC_URL/p/<hash>-<code>.png`, where the hash is the first 7 hex characters of the SHA-256 of the shot and the code is a short filter name (`poster`, `photo`, `half`, `news`, `stripe`, `type`). Files live in `data/photobooth` and are purged at startup.
@@ -53,7 +68,9 @@ Menu key `P`. The server takes a still from the webcam with ffmpeg (the `ffmpeg-
 | `PUBLIC_URL`        | `http://localhost:3615`                   |
 | `PHOTOBOOTH_TTL`    | `300` seconds                             |
 
-At startup the camera's modes are listed and the largest 4:3 mode up to 1920 wide is used. On a Pi, add the service user to the `video` group so `/dev/video0` is readable, and set `PUBLIC_URL` to the public hostname so the QR code works from a phone.
+The gallery terminal is an ESP32 bridging the Minitel to this server. Its firmware lives in [`esp32/`](esp32/README.md) and is configured from the same `.env`.
+
+At startup the camera's modes are listed and the largest 4:3 mode up to 1920 wide is used. On a Pi, add the service user to the `video` group so `/dev/video0` is readable.
 
 ## Notes
 
