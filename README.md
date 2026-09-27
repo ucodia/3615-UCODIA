@@ -29,6 +29,18 @@ sudo rm /etc/systemd/system/slice.service
 sudo systemctl daemon-reload
 ```
 
+## Image converter
+
+`image/` turns a raster image into greyscale mosaic cells. Five looks are available as presets: `photo` (error diffusion), `poster` (no dither), `halftone` (Bayer), `newsprint` (black and white diffusion) and `stencil` (three tones).
+
+Command line:
+
+```sh
+node bin/img2vdt.js photo.jpg --preset photo --cols 40 --rows 24 --out screens/photo.vdt
+```
+
+Playground: run `npm run dev` and open `http://localhost:3615/playground.html`. Drop, paste or pick an image, change settings and watch the result in the emulator. "Replay at 4800 baud" shows the reveal at link speed. The page uses `POST /api/vdt`, which takes a raw image body and the same options as the CLI as query parameters.
+
 ## Notes
 
 ### 2026-09-17 - Broken keyboard keys

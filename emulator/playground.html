@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>3615 image playground</title>
+    <script src="library/utils.js"></script>
+    <script src="library/minitel.js"></script>
+    <style>
+      body { margin: 0; padding: 16px; background: #202020; color: #ddd; font: 14px/1.4 system-ui, sans-serif; }
+      main { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+      x-minitel { display: block; }
+      canvas { image-rendering: pixelated; width: 640px; max-width: 100%; }
+      form { display: grid; grid-template-columns: auto auto; gap: 6px 12px; align-items: center; }
+      form label { justify-self: end; }
+      input, select, button { font: inherit; }
+      #drop { border: 2px dashed #555; padding: 24px; text-align: center; margin-bottom: 12px; }
+      #drop.over { border-color: #ddd; }
+      #status { margin-top: 12px; white-space: pre-wrap; }
+      #actions { grid-column: 1 / -1; display: flex; gap: 8px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div>
+        <div id="drop">Drop, paste or <label><input type="file" id="file" accept="image/*" /></label> an image</div>
+        <x-minitel data-speed="4800" data-color="false" data-socket="none">
+          <canvas class="minitel-screen" data-minitel="screen"></canvas>
+        </x-minitel>
+        <div id="status">No image yet.</div>
+      </div>
+      <form id="settings">
+        <label for="preset">preset</label>
+        <select name="preset" id="preset">
+          <option>photo</option><option>poster</option><option>halftone</option><option>newsprint</option><option>stencil</option>
+        </select>
+        <label for="method">method</label>
+        <select name="method" id="method">
+          <option value="">preset default</option><option>flat</option><option>diffuse</option><option>bayer</option>
+        </select>
+        <label for="palette">palette</label>
+        <input name="palette" id="palette" placeholder="preset default, e.g. 0,4,7" />
+        <label for="tone">tone weight</label>
+        <input name="tone" id="tone" type="number" min="0" step="0.5" placeholder="preset default" />
+        <label for="levels">auto levels</label>
+        <input name="levels" id="levels" type="checkbox" checked />
+        <label for="gamma">gamma</label>
+        <input name="gamma" id="gamma" type="number" min="0.1" step="0.1" value="1" />
+        <label for="position">crop anchor</label>
+        <select name="position" id="position">
+          <option>centre</option><option>top</option><option>bottom</option><option>left</option><option>right</option><option>attention</option><option>entropy</option>
+        </select>
+        <label for="cols">cols</label>
+        <input name="cols" id="cols" type="number" min="1" max="40" value="40" />
+        <label for="rows">rows</label>
+        <input name="rows" id="rows" type="number" min="1" max="24" value="24" />
+        <label for="row">row</label>
+        <input name="row" id="row" type="number" min="1" max="24" value="1" />
+        <label for="col">col</label>
+        <input name="col" id="col" type="number" min="1" max="40" value="1" />
+        <div id="actions">
+          <button type="button" id="replay">replay at 4800 baud</button>
+        </div>
+      </form>
+    </main>
+    <script>
+      const [emulator] = Minitel.startEmulators();
+      const form = document.getElementById("settings");
+      const status = document.getElementById("status");
+      const drop = document.getElementById("drop");
+      let image = null;
+      let bytes = null;
+
+      function query() {
+        const data = new FormData(form);
+        const q = new URLSearchParams();
+        for (const [key, value] of data) if (value !== "" && key !== "levels") q.set(key, value);
+        q.set("levels", data.has("levels") ? "true" : "false");
+        return q;
+      }
+
+      async function convert() {
+        if (!image) return;
+        status.textContent = "Converting…";
+        const res = await fetch(`/api/vdt?${query()}`, { method: "POST", body: image.buffer });
+        if (!res.ok) {
+          status.textContent = `Error: ${await res.text()}`;
+          return;
+        }
+        bytes = Array.from(new Uint8Array(await res.arrayBuffer()));
+        status.textContent = `${image.name}: ${bytes.length} bytes, ${(bytes.length / 480).toFixed(1)} s at 4800 baud`;
+        emulator.directSend([0x0c, ...bytes]);
+      }
+
+      function load(file) {
+        if (!file || !file.type.startsWith("image/")) return;
+        file.arrayBuffer().then((buffer) => {
+          image = { name: file.name || "pasted image", buffer };
+          convert();
+        });
+      }
+
+      document.getElementById("file").addEventListener("change", (e) => load(e.target.files[0]));
+      document.addEventListener("paste", (e) => {
+        const item = [...e.clipboardData.items].find((i) => i.type.startsWith("image/"));
+        if (item) load(item.getAsFile());
+      });
+      document.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+      document.addEventListener("dragleave", () => drop.classList.remove("over"));
+      document.addEventListener("drop", (e) => {
+        e.preventDefault();
+        drop.classList.remove("over");
+        load(e.dataTransfer.files[0]);
+      });
+      form.addEventListener("change", convert);
+      document.getElementById("replay").addEventListener("click", () => {
+        if (!bytes) return;
+        emulator.directSend([0x0c]);
+        emulator.send(bytes);
+      });
+    </script>
+  </body>
+</html>

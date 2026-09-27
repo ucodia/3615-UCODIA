@@ -4750,7 +4750,9 @@ Minitel.Emulator = class {
       urlParams.get("url") ||
       container.getAttribute("data-socket") ||
       undefined;
-    if (
+    if (socketURL === "none") {
+      socketURL = undefined;
+    } else if (
       !socketURL &&
       (location.protocol === "https:" || location.protocol === "http:")
     ) {
