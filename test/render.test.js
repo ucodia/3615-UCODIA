@@ -34,3 +34,19 @@ test("renderPng draws text glyphs from the G0 sheet", async () => {
   assert.equal(at(0, 1), 0);
   assert.equal(at(1, 2), 255);
 });
+
+test("renderPng writes an 8-colour palette PNG that decodes to the same greys", async () => {
+  const cells = Array.from({ length: 6 }, (_, y) => Array.from({ length: 10 }, (_, x) => ({ bits: (x * 7 + y * 11) % 64, fg: (x + y) % 8, bg: (x * 3) % 8 })));
+  const png = await renderPng(cells, { scale: 2 });
+  const meta = await sharp(png).metadata();
+  assert.ok(meta.paletteBitDepth !== undefined && meta.paletteBitDepth <= 4, `palette bit depth ${meta.paletteBitDepth}`);
+  const p = await pixels(png);
+  const greys = new Set();
+  for (let i = 0; i < p.width * p.height; i++) {
+    const o = i * p.channels;
+    assert.equal(p.data[o], p.data[o + 1]);
+    assert.equal(p.data[o], p.data[o + 2]);
+    greys.add(p.data[o]);
+  }
+  assert.deepEqual([...greys].sort((a, b) => a - b), [0, 102, 128, 153, 179, 204, 230, 255]);
+});

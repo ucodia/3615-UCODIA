@@ -87,3 +87,11 @@ test("prepare samples 8x10 per cell when asked", async () => {
   assert.equal(f.width, 320);
   assert.equal(f.height, 240);
 });
+
+test("prepare can mirror the image horizontally", async () => {
+  const src = await png(320, 240, (x) => Math.round((x / 319) * 255));
+  const plain = await prepare(src, 40, 24, { levels: false });
+  const mirrored = await prepare(src, 40, 24, { levels: false, mirror: true });
+  assert.ok(plain.data[0] < 0.1 && plain.data[79] > 0.9);
+  assert.ok(mirrored.data[0] > 0.9 && mirrored.data[79] < 0.1);
+});

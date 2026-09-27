@@ -2,6 +2,9 @@ import sharp from "sharp";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { LEVELS } from "./levels.js";
+import { indexedPng } from "./png.js";
+
+const PALETTE = LEVELS.map((l) => Array(3).fill(Math.round(l * 255)));
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 let sprites = null;
@@ -30,7 +33,7 @@ export async function loadSprites() {
   return sprites;
 }
 
-// Cells to a greyscale PNG using the emulator's own glyph shapes.
+// Cells to an indexed PNG, one palette entry per Minitel colour, using the emulator's own glyph shapes.
 export async function renderPng(cells, { scale = 4 } = {}) {
   const { text, mosaic } = await loadSprites();
   const rows = cells.length;
@@ -42,11 +45,9 @@ export async function renderPng(cells, { scale = 4 } = {}) {
     for (let cx = 0; cx < cols; cx++) {
       const cell = cells[cy][cx];
       const glyph = "char" in cell ? text[cell.char.charCodeAt(0)] : mosaic[0x40 + cell.bits];
-      const fg = Math.round(LEVELS[cell.fg] * 255);
-      const bg = Math.round(LEVELS[cell.bg] * 255);
       for (let y = 0; y < 10; y++) {
         for (let x = 0; x < 8; x++) {
-          const v = glyph[y * 8 + x] ? fg : bg;
+          const v = glyph[y * 8 + x] ? cell.fg : cell.bg;
           for (let sy = 0; sy < scale; sy++) {
             const row = (cy * 10 + y) * scale + sy;
             buf.fill(v, row * width + (cx * 8 + x) * scale, row * width + (cx * 8 + x + 1) * scale);
@@ -55,5 +56,5 @@ export async function renderPng(cells, { scale = 4 } = {}) {
       }
     }
   }
-  return sharp(buf, { raw: { width, height, channels: 1 } }).png().toBuffer();
+  return indexedPng(buf, width, height, PALETTE);
 }

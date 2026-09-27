@@ -25,7 +25,7 @@ export function hashOf(jpeg) {
   return createHash("sha256").update(jpeg).digest("hex").slice(0, 8);
 }
 
-// Every look at once, with one prepare per cell size.
+// Every look at once, mirrored like a mirror, with one prepare per cell size.
 export async function convertAll(jpeg) {
   const fields = new Map();
   const cells = new Map();
@@ -33,7 +33,7 @@ export async function convertAll(jpeg) {
     const preset = PRESETS[name];
     const cell = cellSize(preset.method);
     const key = cell.join("x");
-    if (!fields.has(key)) fields.set(key, await prepare(jpeg, COLS, ROWS, { cell }));
+    if (!fields.has(key)) fields.set(key, await prepare(jpeg, COLS, ROWS, { cell, mirror: true }));
     cells.set(name, toCells(applyFilter(fields.get(key), preset.filter), preset));
   }
   return cells;
