@@ -27,7 +27,7 @@ export function startServer(serviceHandler, port, { photoStore = null, sweepMs =
 
   app.post("/api/vdt", express.raw({ type: () => true, limit: "10mb" }), vdtHandler);
   if (photoStore) {
-    app.get("/photobooth/:name", async (req, res) => {
+    app.get("/p/:name", async (req, res) => {
       try {
         const file = await photoStore.get(req.params.name);
         if (!file) throw new Error("unknown or expired");

@@ -1,7 +1,7 @@
 import { mkdir, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-const NAME = /^[0-9a-f]{8}-[a-z]+\.png$/;
+const NAME = /^[0-9a-f]{7}-[a-z]+\.png$/;
 
 // Published renders live in one directory and expire ttlMs after their last publish.
 export class PhotoStore {

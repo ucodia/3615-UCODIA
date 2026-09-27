@@ -23,7 +23,7 @@ const programs = [
   { key: "2", title: "workshops calendar", handoff: (ws) => sliceSchedule(ws, "workshops") },
   { key: "3", title: "omelette facts", handoff: omeletteFacts },
   { key: "V", title: "venables vibes", handoff: venablesVibes },
-  { key: "P", title: "photobooth", handoff: createPhotobooth({ camera, store: photoStore, publicUrl: config.publicUrl }) },
+  { key: "P", title: "photobooth", handoff: createPhotobooth({ camera, store: photoStore, publicUrl: config.publicUrl, ttl: config.ttl }) },
 ];
 
 // Welcome page handler

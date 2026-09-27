@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createPhotobooth, hashOf, convertAll } from "../slice/photobooth.js";
 import sharp from "sharp";
-import { FILTERS, renderIdle, renderPicture, renderCountdown } from "../slice/photobooth-screens.js";
+import { FILTERS, FILTER_CODES, renderIdle, renderPicture, renderCountdown } from "../slice/photobooth-screens.js";
 import { encode } from "../screen.js";
 
 // A Minitel stand-in: records calls, feeds scripted keys, and, like the real
@@ -63,7 +63,7 @@ const sends = (m) => m.calls.filter((c) => c[0] === "send").map((c) => c[1]);
 const messages = (m) => m.calls.filter((c) => c[0] === "message").map((c) => c[1]);
 
 test("hashOf is the first 8 hex chars of sha256", () => {
-  assert.match(hashOf(JPEG), /^[0-9a-f]{8}$/);
+  assert.match(hashOf(JPEG), /^[0-9a-f]{7}$/);
   assert.equal(hashOf(JPEG), hashOf(Buffer.from("fake jpeg bytes")));
   assert.notEqual(hashOf(JPEG), hashOf(Buffer.from("other")));
 });
@@ -103,10 +103,19 @@ test("d publishes once per filter, shows the qr and returns to the picture on a 
   await run();
   const hash = hashOf(JPEG);
   assert.deepEqual(store.published, [`${hash}-poster.png`, `${hash}-poster.png`, `${hash}-photo.png`]);
+  const shown = sends(m).filter((s) => /\/p\//.test(s)).at(-1);
+  assert.ok(shown.includes(`/p/${hash}`) && shown.includes("-photo.png"), "the last qr page names the photo file");
   assert.equal(renders.length, 2, "poster rendered once, photo once");
-  const prints = m.calls.filter((c) => c[0] === "print").map((c) => c[1]);
-  assert.ok(prints.some((t) => /scan to download/.test(t)));
+  assert.ok(shown.includes("scan to download - expires in 5 min"), "the caption is part of the qr page");
+  assert.ok(!m.calls.some((c) => c[0] === "pos" && c[1] === 0), "nothing is written on row 0");
   assert.equal(sends(m).at(-1), encode(renderPicture(fakeCells(2))));
+});
+
+test("the caption follows the configured ttl", async () => {
+  const { m, run } = harness([" ", "d", "x", 6], { ttl: 120 });
+  await run();
+  const shown = sends(m).filter((s) => /\/p\//.test(s)).at(-1);
+  assert.ok(shown.includes("scan to download - expires in 2 min"));
 });
 
 test("space during capture is ignored", async () => {
@@ -135,11 +144,10 @@ test("sommaire on the qr page leaves the page at once", async () => {
 });
 
 test("a url too long for a qr falls back to text", async () => {
-  const { m, run } = harness([" ", "d", "x", 6], { publicUrl: "https://a-very-long-hostname.example.com/with/a/long/path" });
+  const { m, run } = harness([" ", "d", "x", 6], { publicUrl: "https://a-very-long-hostname.example.com/with/a/rather/long/path" });
   await run();
-  const prints = m.calls.filter((c) => c[0] === "print").map((c) => c[1]);
   assert.ok(sends(m).some((s) => /open this address/.test(s)));
-  assert.ok(!prints.some((t) => /scan to download/.test(t)));
+  assert.ok(!sends(m).some((s) => /scan to download/.test(s)));
 });
 
 test("convertAll produces one 40x24 grid per filter from a real jpeg", async () => {
@@ -151,4 +159,18 @@ test("convertAll produces one 40x24 grid per filter from a real jpeg", async () 
     assert.equal(grid[0].length, 40, name);
     assert.equal("char" in grid[0][0], name === "typewriter", name);
   }
+});
+
+test("filter codes are short, unique, lowercase and cover every filter", () => {
+  assert.deepEqual(Object.keys(FILTER_CODES), [...FILTERS]);
+  const codes = Object.values(FILTER_CODES);
+  assert.equal(new Set(codes).size, codes.length);
+  for (const code of codes) assert.match(code, /^[a-z]{3,7}$/);
+  assert.equal(FILTER_CODES.typewriter, "type");
+});
+
+test("d publishes under the short filter code", async () => {
+  const { store, run } = harness([" ", ...Array(8).fill("f"), "d", "x", 6]);
+  await run();
+  assert.deepEqual(store.published, [`${hashOf(JPEG)}-type.png`]);
 });

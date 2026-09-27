@@ -8,6 +8,7 @@ import { PRESETS } from "../image/presets.js";
 import { renderPng } from "../image/render.js";
 import {
   FILTERS,
+  FILTER_CODES,
   renderIdle,
   renderCountdown,
   renderSmile,
@@ -19,10 +20,9 @@ import {
 const COLS = 40;
 const ROWS = 24;
 const COUNTDOWN_MS = 1000;
-const CAPTION = "scan to download, 5 min";
 
 export function hashOf(jpeg) {
-  return createHash("sha256").update(jpeg).digest("hex").slice(0, 8);
+  return createHash("sha256").update(jpeg).digest("hex").slice(0, 7);
 }
 
 // Every look at once, mirrored like a mirror, with one prepare per cell size.
@@ -48,7 +48,9 @@ export function createPhotobooth({
   render = renderPng,
   convert = convertAll,
   log = logger,
+  ttl = 300,
 }) {
+  const caption = `scan to download - expires in ${Math.max(1, Math.round(ttl / 60))} min`;
   return async function photobooth(websocket) {
     const m = makeMinitel(websocket);
     let shot = null;
@@ -84,7 +86,7 @@ export function createPhotobooth({
 
     async function download() {
       const filter = FILTERS[index];
-      const name = `${shot.hash}-${filter}.png`;
+      const name = `${shot.hash}-${FILTER_CODES[filter]}.png`;
       try {
         if (!shot.pngs.has(filter)) shot.pngs.set(filter, await render(shot.cells.get(filter)));
         await store.publish(name, shot.pngs.get(filter));
@@ -93,20 +95,11 @@ export function createPhotobooth({
         await notify("download not available", 3);
         return;
       }
-      const url = `${publicUrl}/photobooth/${name}`;
+      const url = `${publicUrl}/p/${name}`;
       log.info(`Photobooth: published ${url}`);
-      const qr = renderQr(url);
-      await show(qr || renderUrl(url));
-      if (qr) {
-        await m.pos(0, 1);
-        await m.inverse();
-        await m.print(CAPTION);
-        await m.inverse(0);
-      }
+      await show(renderQr(url, caption) || renderUrl(url));
       const [, key] = await m.key();
       if (key === m.sommaire) return key;
-      await m.pos(0, 1);
-      await m.plot(" ", COLS);
       await showPicture();
       return 0;
     }

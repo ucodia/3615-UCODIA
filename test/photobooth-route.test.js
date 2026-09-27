@@ -26,29 +26,29 @@ after(async () => {
 
 test("serves a published photo as image/png", async () => {
   const png = await sharp({ create: { width: 8, height: 10, channels: 3, background: "#808080" } }).png().toBuffer();
-  await store.publish("0123abcd-poster.png", png);
-  const res = await fetch(`${base}/photobooth/0123abcd-poster.png`);
+  await store.publish("0123abc-poster.png", png);
+  const res = await fetch(`${base}/p/0123abc-poster.png`);
   assert.equal(res.status, 200);
   assert.match(res.headers.get("content-type"), /image\/png/);
   assert.equal((await res.arrayBuffer()).byteLength, png.length);
 });
 
 test("unknown, malformed and expired names are 404", async () => {
-  for (const name of ["ffffffff-photo.png", "abc.png", "..%2Fserver.js", "0123abcd-poster.png%2F..%2F..%2Fpackage.json"]) {
-    const res = await fetch(`${base}/photobooth/${name}`);
+  for (const name of ["fffffff-photo.png", "abc.png", "..%2Fserver.js", "0123abc-poster.png%2F..%2F..%2Fpackage.json"]) {
+    const res = await fetch(`${base}/p/${name}`);
     assert.equal(res.status, 404, name);
   }
   clock += 1001;
-  const res = await fetch(`${base}/photobooth/0123abcd-poster.png`);
+  const res = await fetch(`${base}/p/0123abc-poster.png`);
   assert.equal(res.status, 404);
 });
 
 test("the sweeper removes expired entries in the background", async () => {
   const png = Buffer.from("x");
-  await store.publish("abcdef01-photo.png", png);
+  await store.publish("abcdef0-photo.png", png);
   clock += 2000;
   await new Promise((r) => setTimeout(r, 60));
-  assert.equal(store.expires.has("abcdef01-photo.png"), false);
+  assert.equal(store.expires.has("abcdef0-photo.png"), false);
 });
 
 test("a store error answers 404 instead of hanging", async () => {
@@ -56,7 +56,7 @@ test("a store error answers 404 instead of hanging", async () => {
   const { server: s2, wss: w2 } = startServer(() => {}, 0, { photoStore: broken, sweepMs: 100000 });
   await once(s2, "listening");
   try {
-    const res = await fetch(`http://127.0.0.1:${s2.address().port}/photobooth/0123abcd-poster.png`, { signal: AbortSignal.timeout(1000) });
+    const res = await fetch(`http://127.0.0.1:${s2.address().port}/p/0123abc-poster.png`, { signal: AbortSignal.timeout(1000) });
     assert.equal(res.status, 404);
   } finally {
     w2.close();

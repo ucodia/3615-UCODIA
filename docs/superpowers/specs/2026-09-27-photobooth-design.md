@@ -11,7 +11,7 @@ A Minitel page that takes a webcam shot on the server, shows it on the terminal 
 - Capture happens on the server with ffmpeg, spawned as a child process. The `ffmpeg-static` package supplies the binary on macOS and on the Pi; `PHOTOBOOTH_FFMPEG` can point at a system binary instead. Input is avfoundation on macOS and v4l2 on Linux.
 - Resolution: the camera's modes are listed once at startup and the largest 4:3 mode up to 1920 wide is chosen, else the largest mode up to 1920 wide, else the device default. We downscale ourselves with the converter's pipeline; the camera's own scaler is not controllable. The first frames are black while the camera warms up, so frame 16 is kept (measured on the Mac: 2.3 s for a 1760 by 1328 shot).
 - The picture covers rows 1 to 24 (40 by 24, 4:3). The hint bar is drawn over row 24 on the terminal only. The download is the clean 40 by 24 render.
-- Download is the Minitel render as a PNG at 4x (1280 by 960), at `<PUBLIC_URL>/photobooth/<hash>-<filter>.png`, where `hash` is the first 8 hex characters of the SHA-256 of the captured JPEG and `filter` is the preset name. A file is written only when the user presses D. It expires 5 minutes after its last publish; re-publishing refreshes the clock and does not re-render.
+- Download is the Minitel render as a PNG at 4x (1280 by 960), at `<PUBLIC_URL>/p/<hash>-<code>.png`, where `hash` is the first 7 hex characters of the SHA-256 of the captured JPEG and `code` is a short filter name (poster, photo, half, smooth, news, stripe, sketch, stencil, type) so a production url fits a version 3 QR code and, without its scheme, on one 40-column row (`slice.ucodia.space/p/a172089-stencil.png`). The QR page shows the caption on row 1, the code centred on rows 2 to 23 and the url on row 24. Amended 2026-09-27: the path was `/photobooth/` with full preset names and an 8-character hash. A file is written only when the user presses D. It expires 5 minutes after its last publish; re-publishing refreshes the clock and does not re-render.
 - All presets are converted right after the capture and kept in memory for the session; the PNG is rendered on publish. Filter order: poster, photo, halftone, smooth, newsprint, stripes, sketch, stencil, typewriter.
 - A 3, 2, 1 countdown precedes the shot.
 - Keys: SPACE capture, F next filter, D download (only after a capture), SOMMAIRE leaves. Digits 4 to 0 and several letters are broken on the terminal, so the page is opened from the main menu with `P`.
@@ -26,7 +26,7 @@ photobooth/config.js       env: PHOTOBOOTH_DEVICE, PHOTOBOOTH_FFMPEG, PUBLIC_URL
 slice/photobooth-screens.js  pure Screen builders: idle, bar, countdown digit, QR page, url fallback
 slice/photobooth.js        createPhotobooth({ camera, store, publicUrl, makeMinitel }) -> handoff(ws)
 slice/qr.js                gains an errorCorrectionLevel option
-server.js                  GET /photobooth/:name from the store; 404 when unknown or expired
+server.js                  GET /p/:name from the store; 404 when unknown or expired
 index.js                   menu entry "P  photobooth"
 ```
 
@@ -48,7 +48,7 @@ index.js                   menu entry "P  photobooth"
 
 - Directory `data/photobooth`, created on demand and purged at startup.
 - `publish(name, png)` writes the file if absent and records `expires = now + ttl`. `get(name)` returns the path when known and unexpired, else `null` (and deletes the file if expired). `sweep()` deletes every expired entry; the server runs it every 60 seconds.
-- Names are validated against `/^[0-9a-f]{8}-[a-z]+\.png$/` before touching the file system.
+- Names are validated against `/^[0-9a-f]{7}-[a-z]+\.png$/` before touching the file system.
 
 ## Render
 

@@ -11,10 +11,24 @@ const ROWS = 24;
 const COLS = 40;
 const BAR_ROW = 24;
 const QR_MAX_URL = 78; // version 4 at level L
+const QR_ROWS = 22; // row 1 holds the caption, rows 2..23 the code, row 24 the url
 
 export const FILTERS = Object.freeze([
   "poster", "photo", "halftone", "smooth", "newsprint", "stripes", "sketch", "stencil", "typewriter",
 ]);
+
+// short names for download urls, so a production url fits a version 3 code
+export const FILTER_CODES = Object.freeze({
+  poster: "poster",
+  photo: "photo",
+  halftone: "half",
+  smooth: "smooth",
+  newsprint: "news",
+  stripes: "stripe",
+  sketch: "sketch",
+  stencil: "stencil",
+  typewriter: "type",
+});
 
 function centred(screen, row, text, attrs = { fg: BLANC }) {
   screen.text(row, Math.floor((COLS - text.length) / 2) + 1, text, attrs);
@@ -75,16 +89,23 @@ export function renderPicture(cells) {
   return renderBar(screen, { captured: true });
 }
 
-// The code fills the screen on a white ground; null when the URL needs more than version 4.
-export function renderQr(url) {
+// The code sits on a white ground between the caption and the url shown without its scheme;
+// null when the URL needs more than version 4.
+export function renderQr(url, caption) {
   if (url.length > QR_MAX_URL) return null;
-  const bitmap = qrBitmap(url, { scale: 2, margin: 1, errorCorrectionLevel: "L" });
+  // one module of quiet zone when it fits (version 3), none for a version 4 code
+  let bitmap = qrBitmap(url, { scale: 2, margin: 1, errorCorrectionLevel: "L" });
+  if (Math.ceil(bitmap.length / 3) > QR_ROWS) bitmap = qrBitmap(url, { scale: 2, margin: 0, errorCorrectionLevel: "L" });
   const width = Math.ceil(bitmap[0].length / 2);
   const height = Math.ceil(bitmap.length / 3);
-  if (width > COLS || height > ROWS) return null;
+  if (width > COLS || height > QR_ROWS) return null;
   const screen = new Screen(ROWS, COLS);
   screen.fill(1, 1, ROWS, COLS, { mosaic: true, char: 0, fg: NOIR, bg: BLANC });
-  drawBitmap(screen, Math.floor((ROWS - height) / 2) + 1, Math.floor((COLS - width) / 2) + 1, bitmap, { fg: NOIR, bg: BLANC });
+  drawBitmap(screen, Math.round((QR_ROWS - height) / 2) + 2, Math.floor((COLS - width) / 2) + 1, bitmap, { fg: NOIR, bg: BLANC });
+  // inverse video on the default colours: black text on white, no serial background attribute needed
+  const pad = (text) => text.slice(0, COLS).padEnd(COLS);
+  screen.text(1, 1, pad(" ".repeat(Math.floor((COLS - caption.length) / 2)) + caption), { inverse: true });
+  screen.text(ROWS, 1, pad(url.replace(/^https?:\/\//, "")), { inverse: true });
   return screen;
 }
 
