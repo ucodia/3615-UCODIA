@@ -20,10 +20,20 @@ done
 
 NODE_BIN="$(command -v node)"
 
-DEFAULT_PUBLIC_URL="https://slice.ucodia.space"
-read -r -p "Public URL for photobooth downloads [${DEFAULT_PUBLIC_URL}]: " PUBLIC_URL_INPUT
-PUBLIC_URL="${PUBLIC_URL_INPUT:-$DEFAULT_PUBLIC_URL}"
-PUBLIC_URL="${PUBLIC_URL%/}"
+ENV_FILE="${APP_DIR}/.env"
+if [ ! -f "$ENV_FILE" ]; then
+  echo "Missing ${ENV_FILE}. Copy .env.example to .env and fill it in first." >&2
+  exit 1
+fi
+env_value() { grep -E "^[[:space:]]*$1[[:space:]]*=" "$ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"\(.*\)"$/\1/'; }
+if [ -z "$(env_value PUBLIC_URL)" ]; then
+  echo "PUBLIC_URL is empty in ${ENV_FILE}." >&2
+  exit 1
+fi
+TOKEN_VALUE="$(env_value TERMINAL_TOKEN)"
+if [ "${#TOKEN_VALUE}" -lt 32 ]; then
+  echo "Warning: TERMINAL_TOKEN is missing or shorter than 32 characters; the photobooth will be unavailable." >&2
+fi
 
 cd "$APP_DIR"
 DEPS_STAMP="node_modules/.install-stamp"
@@ -48,11 +58,10 @@ Wants=network-online.target
 Type=simple
 User=${APP_USER}
 WorkingDirectory=${APP_DIR}
-ExecStart=${NODE_BIN} index.js
+ExecStart=${NODE_BIN} --env-file-if-exists=.env index.js
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
-Environment=PUBLIC_URL=${PUBLIC_URL}
 
 [Install]
 WantedBy=multi-user.target
