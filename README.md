@@ -39,7 +39,7 @@ Command line:
 node bin/img2vdt.js photo.jpg --preset photo --cols 40 --rows 24 --out screens/photo.vdt
 ```
 
-Playground: run `npm run dev` and open `http://localhost:3615/playground.html`. Drop, paste or pick an image, change settings and watch the result in the emulator. "Replay at 4800 baud" shows the reveal at link speed. The page uses `POST /api/vdt`, which takes a raw image body and the same options as the CLI as query parameters.
+Playground: run `npm run dev` and open `http://localhost:3615/playground.html`. Drop, paste or pick an image, or start the webcam for a live feed, change settings and watch the result in the emulator. Loading an image stops the camera. The camera needs localhost or HTTPS. "Replay at 4800 baud" shows the reveal at link speed. The page uses `POST /api/vdt`, which takes a raw image body and the same options as the CLI as query parameters.
 
 ## Notes
 
