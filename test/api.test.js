@@ -48,3 +48,18 @@ test("rejects a non-image body", async () => {
   const res = await fetch(`${base}/api/vdt?cols=2&rows=1`, { method: "POST", body: "hello" });
   assert.equal(res.status, 400);
 });
+
+test("serves the converter modules under /lib", async () => {
+  for (const path of ["/lib/image/quantise.js", "/lib/image/field.js", "/lib/screen.js", "/lib/mosaic.js"]) {
+    const res = await fetch(`${base}${path}`);
+    assert.equal(res.status, 200, path);
+    assert.match(res.headers.get("content-type"), /javascript/, path);
+  }
+});
+
+test("lib mount does not expose the repo root", async () => {
+  for (const path of ["/lib/server.js", "/lib/package.json", "/lib/image/../server.js"]) {
+    const res = await fetch(`${base}${path}`);
+    assert.equal(res.status, 404, path);
+  }
+});

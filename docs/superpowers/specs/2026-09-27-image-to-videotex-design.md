@@ -211,6 +211,10 @@ A page served by the existing static mount at `/playground.html`.
 
 Visual checks happen in the playground, not in tests.
 
+## Amendment 2026-09-27: browser conversion in the playground
+
+The playground now converts in the browser by default. `image/prepare.js` was split: `image/field.js` holds the pure core (Rec. 601 luminance, percentile levels, gamma, cover-crop geometry) and both the sharp front end and a canvas front end, `image/prepare-browser.js`, call it. `server.js` serves `image/`, `screen.js` and `mosaic.js` under `/lib` for the page. A "server" checkbox routes the same options through `POST /api/vdt` for comparison. Measured on portraits, the two paths differ by about 1 percent per subpixel before quantising and are visually equivalent; diffusion presets differ cell for cell because the dither pattern is chaotic. The endpoint and CLI keep the sharp path for the photobooth, but their colour handling changed with this split: node no longer uses libvips' linear-light greyscale and instead applies the shared gamma-space Rec. 601 luminance, so colour input renders differently from before (pure red goes from 0.50 to 0.30 lightness; greyscale input is unchanged). The playground offers only the five geometric crop anchors.
+
 ## Follow-ups, not in this spec
 
 - Grey ramp calibration screen to measure the real tube's levels.

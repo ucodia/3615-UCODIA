@@ -39,7 +39,7 @@ Command line:
 node bin/img2vdt.js photo.jpg --preset photo --cols 40 --rows 24 --out screens/photo.vdt
 ```
 
-Playground: run `npm run dev` and open `http://localhost:3615/playground.html`. Drop, paste or pick an image, or start the webcam for a live feed, change settings and watch the result in the emulator. Loading an image stops the camera. The camera needs localhost or HTTPS. "Replay at 4800 baud" shows the reveal at link speed. The page uses `POST /api/vdt`, which takes a raw image body and the same options as the CLI as query parameters.
+Playground: run `npm run dev` and open `http://localhost:3615/playground.html`. Drop, paste or pick an image, or start the webcam for a live feed, change settings and watch the result in the emulator. Loading an image stops the camera. Conversion runs in the browser with the same `image/` modules node uses, except that a canvas does the resampling instead of sharp; tick "server" to convert through `POST /api/vdt` instead and compare. That endpoint takes a raw image body and the same options as the CLI as query parameters. Colour is reduced to grey with Rec. 601 luminance on both sides. "Replay at 4800 baud" shows the reveal at link speed. The camera needs localhost or HTTPS.
 
 ## Notes
 

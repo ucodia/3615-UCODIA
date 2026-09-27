@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import sharp from "sharp";
-import { prepare, stretch } from "../image/prepare.js";
+import { prepare } from "../image/prepare.js";
 
 async function png(width, height, fn, channels = 1) {
   const buf = Buffer.alloc(width * height * channels);
@@ -63,22 +63,20 @@ test("prepare applies gamma", async () => {
   assert.ok(Math.abs(dark.data[0] - plain.data[0] ** 2) < 1e-3);
 });
 
-test("stretch maps the 1st and 99th percentiles to 0 and 1", () => {
-  const data = Float32Array.from({ length: 1000 }, (_, i) => 0.25 + (i / 999) * 0.5);
-  const out = stretch(data);
-  assert.ok(out[0] === 0);
-  assert.ok(out[999] === 1);
-  assert.ok(Math.abs(out[500] - 0.5) < 0.02);
-});
-
-test("stretch leaves a flat field unchanged", () => {
-  const data = Float32Array.from({ length: 100 }, () => 0.5);
-  const out = stretch(data);
-  for (const v of out) assert.equal(v, 0.5);
-});
-
 test("prepare rejects images over the pixel limit", async () => {
   const src = await png(320, 240, () => 128);
   await assert.rejects(prepare(src, 2, 1, { maxPixels: 1000 }), /pixel limit/i);
   await prepare(src, 2, 1, { maxPixels: 320 * 240 });
+});
+
+test("prepare converts colour with the shared luminance", async () => {
+  const src = await sharp({ create: { width: 16, height: 12, channels: 3, background: { r: 255, g: 0, b: 0 } } }).png().toBuffer();
+  const f = await prepare(src, 2, 1, { levels: false });
+  for (const v of f.data) assert.ok(Math.abs(v - 0.299) < 0.01, `got ${v}`);
+});
+
+test("prepare accepts a single-channel image", async () => {
+  const src = await png(16, 12, () => 200);
+  const f = await prepare(src, 2, 1, { levels: false });
+  for (const v of f.data) assert.ok(Math.abs(v - 200 / 255) < 0.01, `got ${v}`);
 });

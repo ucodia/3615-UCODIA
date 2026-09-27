@@ -15,8 +15,7 @@
       aside { display: flex; flex-direction: column; gap: 16px; padding: 16px; overflow-y: auto; background: #181818; border-left: 1px solid #333; }
       section h2 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; }
       .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
-      #video { display: block; width: 100%; background: #000; margin-bottom: 8px; }
-      #video { transform: scaleX(-1); }
+      #video { display: block; width: 100%; background: #000; margin-bottom: 8px; transform: scaleX(-1); }
       #video[hidden] { display: none; }
       form { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; }
       form label { justify-self: end; color: #bbb; }
@@ -67,7 +66,7 @@
           <input name="gamma" id="gamma" type="number" min="0.1" step="0.1" value="1" />
           <label for="position">crop</label>
           <select name="position" id="position">
-            <option>centre</option><option>top</option><option>bottom</option><option>left</option><option>right</option><option>attention</option><option>entropy</option>
+            <option>centre</option><option>top</option><option>bottom</option><option>left</option><option>right</option>
           </select>
           <label for="cols">cols</label>
           <input name="cols" id="cols" type="number" min="1" max="40" value="40" />
@@ -77,6 +76,8 @@
           <input name="row" id="row" type="number" min="1" max="24" value="1" />
           <label for="col">col</label>
           <input name="col" id="col" type="number" min="1" max="40" value="1" />
+          <label for="server">server</label>
+          <input name="server" id="server" type="checkbox" style="justify-self: start" title="convert through POST /api/vdt (sharp) instead of in the browser" />
         </form>
       </section>
       <section>
@@ -87,58 +88,84 @@
         <div id="status">No image yet.</div>
       </section>
     </aside>
-    <script>
+    <script type="module">
+      import { Screen, encode } from "/lib/screen.js";
+      import { quantise } from "/lib/image/quantise.js";
+      import { paint } from "/lib/image/paint.js";
+      import { parseOptions } from "/lib/image/options.js";
+      import { prepareCanvas } from "/lib/image/prepare-browser.js";
+
       const [emulator] = Minitel.startEmulators();
       const form = document.getElementById("settings");
       const status = document.getElementById("status");
       const stage = document.getElementById("stage");
       const video = document.getElementById("video");
       const cameraToggle = document.getElementById("camera-toggle");
+      const serverBox = document.getElementById("server");
       const frameCanvas = document.createElement("canvas");
-      let image = null;
+      let source = null; // { name, file, bitmap } for an image, { name, camera: true } for the webcam
       let bytes = null;
       let stream = null;
       let generation = 0;
 
-      function query() {
+      function rawOptions() {
         const data = new FormData(form);
-        const q = new URLSearchParams();
-        for (const [key, value] of data) if (value !== "" && key !== "levels") q.set(key, value);
-        q.set("levels", data.has("levels") ? "true" : "false");
-        return q;
+        const raw = {};
+        for (const [key, value] of data) if (value !== "" && key !== "levels" && key !== "server") raw[key] = value;
+        raw.levels = data.has("levels") ? "true" : "false";
+        return raw;
+      }
+
+      function show(name, result, path) {
+        bytes = result;
+        status.textContent = `${name} via ${path}: ${bytes.length} bytes, ${(bytes.length / 480).toFixed(1)} s at 4800 baud`;
+        emulator.directSend([0x0c, ...bytes]);
+      }
+
+      function convertLocal(options) {
+        if (!source.camera && !source.bitmap) throw new Error("The browser cannot decode this image; tick \"server\" to convert it with sharp.");
+        const drawable = source.camera ? video : source.bitmap;
+        const field = prepareCanvas(drawable, options.cols, options.rows, {
+          position: options.position,
+          levels: options.levels,
+          gamma: options.gamma,
+          mirror: Boolean(source.camera),
+        });
+        const cells = quantise(field, options.quantise);
+        const screen = new Screen(24, 40);
+        paint(screen, options.row, options.col, cells);
+        return Array.from(encode(screen), (c) => c.charCodeAt(0));
+      }
+
+      async function convertServer(raw) {
+        const body = source.camera ? await frame() : await source.file.arrayBuffer();
+        const res = await fetch(`/api/vdt?${new URLSearchParams(raw)}`, { method: "POST", body });
+        if (!res.ok) throw new Error(await res.text());
+        return Array.from(new Uint8Array(await res.arrayBuffer()));
       }
 
       // only the latest request may touch the screen; earlier ones can still be in flight
       async function convert() {
-        if (!image) return;
+        if (!source) return;
         const mine = ++generation;
-        const { name, buffer } = image;
-        let res;
+        const { name } = source;
+        const raw = rawOptions();
         try {
-          res = await fetch(`/api/vdt?${query()}`, { method: "POST", body: buffer });
+          const options = parseOptions(raw);
+          const result = serverBox.checked ? await convertServer(raw) : convertLocal(options);
+          if (mine === generation) show(name, result, serverBox.checked ? "server" : "browser");
         } catch (error) {
-          if (mine === generation) status.textContent = `Request failed: ${error.message}`;
-          return;
+          if (mine === generation) status.textContent = `Error: ${error.message}`;
         }
-        if (!res.ok) {
-          const text = await res.text();
-          if (mine === generation) status.textContent = `Error: ${text}`;
-          return;
-        }
-        const result = Array.from(new Uint8Array(await res.arrayBuffer()));
-        if (mine !== generation) return;
-        bytes = result;
-        status.textContent = `${name}: ${bytes.length} bytes, ${(bytes.length / 480).toFixed(1)} s at 4800 baud`;
-        emulator.directSend([0x0c, ...bytes]);
       }
 
-      function load(file) {
+      async function load(file) {
         if (!file || !file.type.startsWith("image/")) return;
         stopCamera();
-        file.arrayBuffer().then((buffer) => {
-          image = { name: file.name || "pasted image", buffer };
-          convert();
-        });
+        // formats the browser cannot decode (TIFF, some HEIC) can still go through the server path
+        const bitmap = await createImageBitmap(file).catch(() => null);
+        source = { name: file.name || "pasted image", file, bitmap };
+        convert();
       }
 
       async function startCamera() {
@@ -156,6 +183,7 @@
         video.hidden = false;
         cameraToggle.textContent = "stop camera";
         await new Promise((resolve) => video.addEventListener("loadeddata", resolve, { once: true }));
+        source = { name: "camera", camera: true };
         liveLoop();
       }
 
@@ -166,36 +194,27 @@
         video.srcObject = null;
         video.hidden = true;
         cameraToggle.textContent = "start camera";
+        if (source?.camera) source = null;
       }
 
+      // JPEG of the mirrored camera frame, for the server path only
       function frame() {
         const scale = Math.min(1, 640 / video.videoWidth);
         frameCanvas.width = Math.round(video.videoWidth * scale);
         frameCanvas.height = Math.round(video.videoHeight * scale);
         const ctx = frameCanvas.getContext("2d");
-        // flipped like the preview, so the shot matches what the person sees
         ctx.setTransform(-1, 0, 0, 1, frameCanvas.width, 0);
         ctx.drawImage(video, 0, 0, frameCanvas.width, frameCanvas.height);
-        return new Promise((resolve) => frameCanvas.toBlob(resolve, "image/jpeg", 0.9));
-      }
-
-      async function capture() {
-        if (!stream || !video.videoWidth) return;
-        const source = stream;
-        const blob = await frame();
-        const buffer = await blob.arrayBuffer();
-        if (stream !== source) return; // camera was stopped or an image was loaded meanwhile
-        image = { name: "camera", buffer };
-        await convert();
+        return new Promise((resolve) => frameCanvas.toBlob((blob) => blob.arrayBuffer().then(resolve), "image/jpeg", 0.9));
       }
 
       let looping = false;
       async function liveLoop() {
         if (looping) return;
         looping = true;
-        while (stream) {
-          await capture();
-          await new Promise((resolve) => setTimeout(resolve, 150));
+        while (stream && source?.camera) {
+          await convert();
+          await new Promise((resolve) => setTimeout(resolve, serverBox.checked ? 150 : 30));
         }
         looping = false;
       }
@@ -222,6 +241,7 @@
         emulator.send(bytes);
       });
       cameraToggle.addEventListener("click", () => (stream ? stopCamera() : startCamera()));
+      window.playground = { load, convert, startCamera }; // for headless checks
     </script>
   </body>
 </html>

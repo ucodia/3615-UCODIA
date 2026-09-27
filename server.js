@@ -26,6 +26,10 @@ export function startServer(serviceHandler, port) {
   });
 
   app.post("/api/vdt", express.raw({ type: () => true, limit: "10mb" }), vdtHandler);
+  app.use("/lib/image", express.static(path.join(__dirname, "image")));
+  for (const file of ["screen.js", "mosaic.js"]) {
+    app.get(`/lib/${file}`, (req, res) => res.sendFile(path.join(__dirname, file)));
+  }
 
   app.use(express.static(path.join(__dirname, "emulator")));
 
