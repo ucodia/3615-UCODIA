@@ -20,6 +20,11 @@ done
 
 NODE_BIN="$(command -v node)"
 
+DEFAULT_PUBLIC_URL="https://slice.ucodia.space"
+read -r -p "Public URL for photobooth downloads [${DEFAULT_PUBLIC_URL}]: " PUBLIC_URL_INPUT
+PUBLIC_URL="${PUBLIC_URL_INPUT:-$DEFAULT_PUBLIC_URL}"
+PUBLIC_URL="${PUBLIC_URL%/}"
+
 cd "$APP_DIR"
 DEPS_STAMP="node_modules/.install-stamp"
 DEPS_HASH="$(node --version) $(sha256sum package-lock.json | cut -d' ' -f1)"
@@ -47,6 +52,7 @@ ExecStart=${NODE_BIN} index.js
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
+Environment=PUBLIC_URL=${PUBLIC_URL}
 
 [Install]
 WantedBy=multi-user.target
