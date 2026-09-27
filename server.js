@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
 import logger from "./logger.js";
+import { vdtHandler } from "./image/api.js";
 
 function getClientIp(req) {
   return (
@@ -23,6 +24,8 @@ export function startServer(serviceHandler, port) {
     logger.info(`[HTTP] ${req.method} ${req.path} - ${getClientIp(req)}`);
     next();
   });
+
+  app.post("/api/vdt", express.raw({ type: () => true, limit: "10mb" }), vdtHandler);
 
   app.use(express.static(path.join(__dirname, "emulator")));
 
