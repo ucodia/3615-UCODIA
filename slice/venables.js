@@ -79,7 +79,7 @@ async function showQrPage(m) {
   await m.print("back → ");
   await m.inverse();
   await m.color(m.cyan);
-  await m.print("RETOUR");
+  await m.print("SOMMAIRE");
   await m.inverse(0);
   await m.key();
 }

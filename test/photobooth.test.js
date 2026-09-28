@@ -184,6 +184,17 @@ test("sommaire on the qr page returns to the picture; a second one leaves", asyn
   m.press(6);
 });
 
+test("the qr page returns to the picture by itself after the timeout", async () => {
+  const { m, run } = harness([" ", "d"], { qrTimeoutMs: 30 });
+  setTimeout(() => m.press(6), 150);
+  const result = await Promise.race([run(), new Promise((r) => setTimeout(() => r("hung"), 1000))]);
+  assert.equal(result, 6);
+  const all = sends(m);
+  const qrAt = all.findIndex((s) => /\/p\//.test(s));
+  assert.ok(qrAt >= 0, "the qr page was shown");
+  assert.equal(all[qrAt + 1], encode(renderPicture(fakeCells(1))), "the picture came back without a key press");
+});
+
 test("a url too long for a qr falls back to text", async () => {
   const { m, run } = harness([" ", "d", "x", 6], { publicUrl: "https://a-very-long-hostname.example.com/with/a/rather/long/path" });
   await run();

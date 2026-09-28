@@ -56,6 +56,7 @@ export function createPhotobooth({
   dump = null,
   log = logger,
   ttl = 300,
+  qrTimeoutMs = 60000,
 }) {
   const caption = `scan to download - expires in ${Math.max(1, Math.round(ttl / 60))} min`;
   return async function photobooth(websocket) {
@@ -131,7 +132,11 @@ export function createPhotobooth({
       const url = `${publicUrl}/p/${name}`;
       log.info(`Photobooth: published ${url}`);
       await show(renderQr(url, caption) || renderUrl(url), { menuHint: false });
-      await m.key();
+      // any key or the timeout brings the picture back; a key arriving during the redraw is dropped
+      await new Promise((resolve) => {
+        const timer = setTimeout(resolve, qrTimeoutMs);
+        m.key().then(() => { clearTimeout(timer); resolve(); }, () => { clearTimeout(timer); resolve(); });
+      });
       await showPicture();
     }
 
