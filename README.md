@@ -61,11 +61,13 @@ To test the terminal pages from a browser, open the emulator with the token in t
 
 ### Who gets what
 
-The emulator page and the download route are public. A websocket connection presenting `TERMINAL_TOKEN` is the gallery terminal and is the only one offered the photobooth, so the webcam next to the Minitel can only be triggered from the Minitel. Everyone else sees the menu without it. The playground, the `/lib` modules and `POST /api/vdt` are local tools: requests arriving through the Cloudflare tunnel (they carry `cf-connecting-ip`) get a 404, so they work at `http://localhost:3615` and on the LAN only. This assumes the tunnel is the only public path to the server.
+The emulator page and the download route are public. A websocket connection presenting `TERMINAL_TOKEN` is the gallery terminal and the only one whose photobooth uses the server webcam, so the camera next to the Minitel can only be triggered from the Minitel. Everyone else gets the photobooth on their own browser camera: the emulator sends a 320 by 240 block of raw pixels, which the server checks by length and never decodes, so no image parser ever runs on visitor data. Websocket messages are capped at 512 KB. The playground, the `/lib` modules and `POST /api/vdt` are local tools: requests arriving through the Cloudflare tunnel (they carry `cf-connecting-ip`) get a 404, so they work at `http://localhost:3615` and on the LAN only. This assumes the tunnel is the only public path to the server.
 
 ## Photobooth
 
 Menu key `P`. The server takes a still from the webcam with ffmpeg (the `ffmpeg-static` package ships the binary for macOS and Linux arm64), converts it to every look, and shows it on the Minitel. Keys: `SPACE` capture (after a 3, 2, 1 countdown), `F` next filter (poster, photo, halftone, newsprint, stripes, typewriter), `D` download, `SOMMAIRE` back to the menu. `D` renders the current look as a 1280 by 960 PNG, publishes it for five minutes and shows a QR code pointing at `PUBLIC_URL/p/<hash>-<code>.png`, where the hash is the first 7 hex characters of the SHA-256 of the shot and the code is a short filter name (`poster`, `photo`, `half`, `news`, `stripe`, `type`). Files live in `data/photobooth` and are purged at startup.
+
+On the browser emulator the picture comes from the visitor's camera. The browser asks for permission when the photobooth page opens; a refusal or a missing camera shows "camera not available" after the countdown. The camera is released when the page is left.
 
 | variable            | default                                   |
 |---------------------|-------------------------------------------|
