@@ -53,6 +53,7 @@ export function renderBar(screen, { captured }) {
 
 export function renderIdle() {
   const screen = new Screen(ROWS, COLS);
+  centred(screen, 10, " PHOTOBOOTH ", { fg: CYAN, inverse: true });
   centred(screen, 12, "press space to capture");
   return renderBar(screen, { captured: false });
 }

@@ -29,6 +29,8 @@ test("filters start with poster and cover every preset once", () => {
 
 test("idle shows the prompt and a bar with SPACE only; the menu hint lives on the status row", () => {
   const s = renderIdle();
+  assert.equal(rowText(s, 10).trim(), "PHOTOBOOTH", "the page names itself above the prompt");
+  assert.equal(s.get(10, rowText(s, 10).indexOf("PHOTOBOOTH") + 1).inverse, true, "title in the inverse key style");
   assert.match(rowText(s, 12), /press space to capture/);
   const bar = rowText(s, 24);
   assert.match(bar, /SPACE.*capture/);
