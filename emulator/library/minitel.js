@@ -4767,6 +4767,10 @@ Minitel.Emulator = class {
       this.socket.onopen = () => {
         // Add a link: network → decoder
         this.socket.onmessage = (messageEvent) => {
+          if (messageEvent.data instanceof Blob) {
+            this.photobooth(messageEvent.data);
+            return;
+          }
           const message = [];
           range(messageEvent.data.length).forEach((offset) => {
             message.push(messageEvent.data[offset].charCodeAt(0));
@@ -4787,6 +4791,7 @@ Minitel.Emulator = class {
 
       this.socket.onclose = () => {
         this.vdu.setStatusCharacter(0x46);
+        this.cameraOff();
         if (this.keyboard) this.keyboard.setEmitter(undefined);
       };
     }
@@ -4863,6 +4868,61 @@ Minitel.Emulator = class {
         this.setRefresh(settings.speed);
       });
     }
+  }
+
+  // Photobooth control bytes from the server: 1 camera on, 2 capture, 3 camera off.
+  async photobooth(blob) {
+    const [byte] = new Uint8Array(await blob.arrayBuffer());
+    if (byte === 1) await this.cameraOn();
+    else if (byte === 2) this.socket.send(this.frame());
+    else if (byte === 3) this.cameraOff();
+  }
+
+  async cameraOn() {
+    if (this.camera) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      video.muted = true;
+      video.playsInline = true;
+      await video.play();
+      this.camera = { stream, video };
+    } catch (error) {
+      this.camera = undefined;
+    }
+  }
+
+  // 320 by 240 RGB, centre cover crop, not mirrored: the server mirrors.
+  frame() {
+    const video = this.camera?.video;
+    if (!video || !video.videoWidth) return new Uint8Array(0);
+    const width = 320;
+    const height = 240;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    ctx.imageSmoothingQuality = "high";
+    const scale = Math.max(width / video.videoWidth, height / video.videoHeight);
+    const sw = width / scale;
+    const sh = height / scale;
+    ctx.drawImage(video, (video.videoWidth - sw) / 2, (video.videoHeight - sh) / 2, sw, sh, 0, 0, width, height);
+    const { data } = ctx.getImageData(0, 0, width, height);
+    const rgb = new Uint8Array(width * height * 3);
+    for (let i = 0, j = 0; i < data.length; i += 4, j += 3) {
+      rgb[j] = data[i];
+      rgb[j + 1] = data[i + 1];
+      rgb[j + 2] = data[i + 2];
+    }
+    return rgb;
+  }
+
+  cameraOff() {
+    if (!this.camera) return;
+    this.camera.stream.getTracks().forEach((track) => track.stop());
+    this.camera.video.srcObject = null;
+    this.camera = undefined;
   }
 
   /**
