@@ -29,39 +29,19 @@ The class gains three things, all small:
 - **A cancellable read.** `#read` keeps the resolve and reject of its pending promise in a private field. `cancelRead(error)` rejects the pending read with the given error and clears the field; when nothing is pending it does nothing. `#read` no longer swallows errors: its `catch` only logs socket errors and rethrows everything, so `key()` and `input()` propagate the rejection to the page.
 - **`IdleError`**, exported from `minitel.js`, is the error the watchdog uses. Pages never catch it; the welcome loop does.
 
-### 2. The idle watchdog, `slice/idle.js`
+### 2. Idle timer and keep-alive, in `slice/attract.js`
 
-`createWatchdog(m, { idleMs, keepaliveMs, keepalive, now, setTimer, clearTimer })` returns `{ start(), stop(), touch() }`.
-
-- `start()` arms two timers. The idle timer fires when `now() - m.lastActivity >= idleMs`; it re-arms itself for the remaining time when activity happened in between, so a stamp anywhere resets the countdown without the watchdog having to observe messages itself. On expiry it calls `m.cancelRead(new IdleError())`. The keep-alive timer sends `keepalive` (default `"\x00"`) every `keepaliveMs` through `m.send`, which also goes through the write path of the class, so it interleaves with page writes at message granularity and never inside a sequence.
-- `stop()` clears both timers. It is called when the socket closes and while the attract screen runs, since the attract screen animates on its own and must not be cancelled.
-- `touch()` stamps activity by hand; the attract loop calls it when its wake key arrives so the next page starts with a fresh countdown.
-
-Timers are injected so tests drive them with a fake clock.
+`startIdle(m, { idleMs, keepaliveMs, keepalive = "\x00", onIdle })` returns `{ stop() }`. It arms a timer for `idleMs`; on expiry it compares `Date.now()` with `m.lastActivity` and either calls `onIdle()` or re-arms itself for the remaining time, so activity anywhere resets the countdown without the timer having to observe messages. When `keepaliveMs` is above zero it also sends `keepalive` through `m.send` at that interval, which goes through the class's write path and therefore never lands inside a sequence. `stop()` clears both timers. Real timers; tests use short delays as the photobooth tests do. Lean choice (2026-09-28): no injected clock, no separate module.
 
 ### 3. The attract screen, `slice/attract.js`
 
-`renderAttract(step)` builds a `Screen` from the model: the smiley from the proof of concept as a mosaic sprite, "3615 SLICE" under it, and "press any key" in the inverse-key style of the bars, placed by `step` on a path that visits the screen's corners and centre in turn, so nothing stays at one spot. Each frame is a full clear plus the sprite, about 200 bytes, under half a second at 4800 baud.
+`renderAttract(step)` builds a `Screen` from the model: a mosaic smiley drawn with `drawBitmap`, "3615 SLICE" under it and "press any key" in the inverse-key style of the bars, placed by `step` on a short path across the screen so nothing stays put. A frame is a clear plus about 200 bytes, under half a second at 4800 baud.
 
-`runAttract(m, { frameMs = 5000, sleep })` clears the screen, draws frame 0, then loops: wait for either a key or `frameMs`, redraw the next frame on timeout, return on a key. The key is consumed here and nowhere else, so the welcome page starts clean. Waiting uses the same race as the photobooth's QR page: a key read against a timer, cleared when the other wins; a key arriving during a redraw is dropped, as on that page.
+`runAttract(m, { frameMs = 5000 })` draws frame 0, then loops: wait for a key or `frameMs`, redraw the next frame on timeout, return on a key. The wait is the same race as the photobooth's QR page: a key read against a timer, cleared when the other wins; a key arriving during a redraw is dropped, as on that page. The wake key is consumed here.
 
-### 4. The welcome loop
+### 4. The welcome loop, in `index.js`
 
-`welcomePage` moves from `index.js` to `slice/welcome.js` as `createWelcome({ programs, makeMinitel, watchdog, attract, log })` so it can be tested with the stub. Its loop becomes:
-
-```
-draw welcome
-loop
-  try
-    read the choice, hand off to the page, redraw welcome
-  catch IdleError
-    watchdog.stop()
-    await attract(m)
-    watchdog.touch(); watchdog.start()
-    draw welcome
-```
-
-Any other error still propagates to the connection handler, which logs it as today. The watchdog is created per connection in the handler and stopped on socket close.
+The loop body goes inside a `try`. `catch` of an `IdleError` stops the idle timer, runs the attract screen, starts a fresh idle timer and redraws the welcome page; any other error still propagates to the connection handler. The idle timer is started when the page handler begins and stopped when the socket closes. Lean choice (2026-09-28): the welcome page stays in `index.js`; the wake path is verified with a websocket probe against a running server and on the hardware, not by a unit test.
 
 ### 5. Cleanup on cancellation
 
@@ -74,7 +54,7 @@ The calendar and omelette pages hold no timers. The photobooth's in-flight captu
 
 ### 6. Configuration
 
-Two keys in `.env`, read by `photobooth/config.js`'s neighbour `config.js`:
+Two keys in `.env`, read by `config.js`:
 
 | key | default | meaning |
 | --- | --- | --- |
@@ -90,29 +70,24 @@ NUL (`0x00`) is the candidate: the videotex standard treats it as a fill charact
 ## Testing
 
 - Minitel class: `cancelRead` rejects a pending `key()` with the given error, and a later `key()` works; `cancelRead` with nothing pending is a no-op; the activity stamp updates on a message even when nothing is reading; `input()` propagates the rejection.
-- Watchdog, with a fake clock: fires after `idleMs` of silence, not before; a touch in between delays it by the elapsed time; keep-alive sends the byte at the interval and not during the attract screen; `stop()` cancels both.
+- Idle timer, with short real delays: fires after `idleMs` of silence, not before; activity in between delays it; keep-alive sends the byte at the interval; `stop()` cancels both.
 - Attract: frames move between calls; `runAttract` returns on a key without sending another frame; it sends a new frame on each timeout; the wake key is not left in the buffer.
-- Welcome: with the stub Minitel, an idle rejection in the middle of a page leads to the attract screen and then the welcome page, and the next key selects a menu entry normally; a page error that is not an idle error propagates.
+- Welcome: a websocket probe against a server started with `IDLE_SECONDS=3` sees the attract frames after the delay and the welcome page after a key.
 - Photobooth and Venables: cancellation while waiting for a key clears their timers (no pending timer keeps the process alive; the tests already fail-fast on hangs).
 - Config: defaults and parsing, including `KEEPALIVE_SECONDS=0`.
 
 ## Files touched
 
 ```
-minitel.js                    lastActivity, cancelable #read, cancelRead, IdleError
-slice/idle.js                 new, watchdog
-slice/attract.js              new, screen and loop
-slice/welcome.js              new, welcome loop moved from index.js
-index.js                      builds programs and the welcome via createWelcome, watchdog per connection
+minitel.js                    lastActivity, cancellable #read, cancelRead, IdleError
+slice/attract.js              new: startIdle, renderAttract, runAttract
+index.js                      idle timer per connection, catch in the welcome loop
 slice/photobooth.js           finally for the erase timer
 slice/venables.js             finally for the marquee
 config.js                     IDLE_SECONDS, KEEPALIVE_SECONDS
 .env.example, README.md       the two keys, a note on the standby
 test/minitel-read.test.js     new
-test/idle.test.js             new
 test/attract.test.js          new
-test/welcome.test.js          new
 test/photobooth.test.js       cancellation case
-test/venables.test.js         cancellation case
 test/config.test.js           the two keys
 ```
