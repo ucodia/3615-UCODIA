@@ -37,7 +37,7 @@ Then, with the port in `ESP32_PORT` (default `/dev/cu.usbserial-0001`):
     ESP32_PORT=/dev/cu.usbserial-0001 npm run esp32:flash
     ESP32_PORT=/dev/cu.usbserial-0001 npm run esp32:monitor
 
-The monitor runs at 115200 baud. A good boot prints the detected Minitel baud rate, the network it joined with its IP, then `[WS] Connected to url: /`, and the welcome page appears on the Minitel with the photobooth entry. A wrong token still connects but the menu has no `P` entry; a wrong host or an unreachable network loops on reconnect messages.
+The upload runs at 115200 baud: the board's USB serial bridge fails at the default 921600 with "Unable to verify flash chip connection" right after the baud rate change. The monitor runs at 115200 baud too. A good boot prints the detected Minitel baud rate, the network it joined with its IP, then `[WS] Connected to url: /`, and the welcome page appears on the Minitel with the photobooth entry. A wrong token still connects but the menu has no `P` entry; a wrong host or an unreachable network loops on reconnect messages.
 
 ## Security notes
 
