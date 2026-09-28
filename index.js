@@ -11,10 +11,18 @@ import { programsFor } from "./slice/menu.js";
 import { terminalToken } from "./config.js";
 import logger from "./logger.js";
 import { fileURLToPath } from "url";
-import { dirname, join } from "path";
+import { dirname, join, resolve } from "path";
+import { mkdir, writeFile } from "fs/promises";
 
 const config = photoboothConfig();
-const camera = new Camera({ ffmpeg: config.ffmpeg, device: config.device });
+const camera = new Camera({ ffmpeg: config.ffmpeg, device: config.device, controls: config.controls });
+const dump = config.dump
+  ? async (jpeg, hash) => {
+      const dir = resolve(config.dump);
+      await mkdir(dir, { recursive: true });
+      await writeFile(join(dir, `${hash}.jpg`), jpeg);
+    }
+  : null;
 const photoStore = new PhotoStore({
   dir: join(dirname(fileURLToPath(import.meta.url)), "data", "photobooth"),
   ttlMs: config.ttl * 1000,
@@ -25,7 +33,7 @@ const allPrograms = [
   { key: "2", title: "workshops calendar", handoff: (ws) => sliceSchedule(ws, "workshops") },
   { key: "3", title: "omelette facts", handoff: omeletteFacts },
   { key: "V", title: "venables vibes", handoff: venablesVibes },
-  { key: "P", title: "photobooth", terminalOnly: true, handoff: createPhotobooth({ camera, store: photoStore, publicUrl: config.publicUrl, ttl: config.ttl }) },
+  { key: "P", title: "photobooth", terminalOnly: true, handoff: createPhotobooth({ camera, store: photoStore, publicUrl: config.publicUrl, ttl: config.ttl, gamma: config.gamma, dump }) },
 ];
 
 // Welcome page handler

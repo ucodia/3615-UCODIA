@@ -54,9 +54,11 @@ export function captureArgs(platform, device, mode) {
 }
 
 export class Camera {
-  constructor({ ffmpeg, device, platform = process.platform, spawn = childSpawn, timeoutMs = 15000 }) {
+  constructor({ ffmpeg, device, platform = process.platform, spawn = childSpawn, timeoutMs = 15000, controls = [], v4l2ctl = "v4l2-ctl" }) {
     this.ffmpeg = ffmpeg;
     this.device = device;
+    this.controls = controls;
+    this.v4l2ctl = v4l2ctl;
     this.platform = platform;
     this.spawn = spawn;
     this.timeoutMs = timeoutMs;
@@ -64,9 +66,9 @@ export class Camera {
     this.queue = Promise.resolve();
   }
 
-  #run(args, { ignoreExit = false } = {}) {
+  #run(args, { ignoreExit = false, bin = this.ffmpeg } = {}) {
     return new Promise((resolve, reject) => {
-      const child = this.spawn(this.ffmpeg, args);
+      const child = this.spawn(bin, args);
       const out = [];
       let err = "";
       let done = false;
@@ -100,9 +102,17 @@ export class Camera {
     return this.mode;
   }
 
+  // v4l2 controls such as backlight_compensation=1, set before each shot; a failure is not fatal.
+  async #applyControls() {
+    if (this.platform === "darwin" || this.controls.length === 0) return;
+    const args = ["-d", this.device, ...this.controls.flatMap((control) => ["--set-ctrl", control])];
+    await this.#run(args, { ignoreExit: true, bin: this.v4l2ctl }).catch(() => {});
+  }
+
   // One JPEG frame; concurrent calls run one after the other.
   capture() {
     const job = this.queue.then(async () => {
+      await this.#applyControls();
       const { stdout } = await this.#run(captureArgs(this.platform, this.device, this.mode));
       if (stdout.length === 0) throw new Error("ffmpeg produced no frame");
       return stdout;

@@ -4,6 +4,7 @@ import { createPhotobooth, hashOf, convertAll } from "../slice/photobooth.js";
 import sharp from "sharp";
 import { FILTERS, FILTER_CODES, renderIdle, renderPicture, renderCountdown } from "../slice/photobooth-screens.js";
 import { encode } from "../screen.js";
+import { LEVELS } from "../image/levels.js";
 
 // A Minitel stand-in: records calls, feeds scripted keys, and, like the real
 // class, drops keys pressed while nobody is reading.
@@ -188,6 +189,30 @@ test("a url too long for a qr falls back to text", async () => {
   await run();
   assert.ok(sends(m).some((s) => /open this address/.test(s)));
   assert.ok(!sends(m).some((s) => /scan to download/.test(s)));
+});
+
+test("convertAll applies the gamma to the field", async () => {
+  const width = 160, height = 120;
+  const raw = Buffer.alloc(width * height * 3);
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) raw.fill(Math.round((x / (width - 1)) * 255), (y * width + x) * 3, (y * width + x) * 3 + 3);
+  const jpeg = await sharp(raw, { raw: { width, height, channels: 3 } }).jpeg().toBuffer();
+  const plain = await convertAll(jpeg);
+  const lifted = await convertAll(jpeg, { gamma: 0.5 });
+  const brightness = (grid) => grid.flat().reduce((sum, cell) => sum + LEVELS[cell.fg ?? 0] + LEVELS[cell.bg ?? 0], 0);
+  assert.ok(brightness(lifted.get("poster")) > brightness(plain.get("poster")), "gamma below 1 brightens the mid-tones");
+});
+
+test("the raw jpeg is handed to dump with its hash after a capture", async () => {
+  const dumped = [];
+  const { run } = harness([" ", 6], { dump: async (jpeg, hash) => { dumped.push([jpeg.toString(), hash]); } });
+  await run();
+  assert.deepEqual(dumped, [[JPEG.toString(), hashOf(JPEG)]]);
+});
+
+test("a failing dump does not break the capture", async () => {
+  const { m, run } = harness([" ", 6], { dump: async () => { throw new Error("disk full"); } });
+  await run();
+  assert.equal(sends(m).at(-1), encode(renderPicture(fakeCells(1))));
 });
 
 test("convertAll produces one 40x24 grid per filter from a real jpeg", async () => {

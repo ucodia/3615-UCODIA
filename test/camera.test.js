@@ -95,7 +95,37 @@ test("photoboothConfig defaults per platform and reads the environment", () => {
   assert.equal(mac.publicUrl, "http://localhost:3615");
   assert.equal(mac.ttl, 300);
   assert.ok(mac.ffmpeg.endsWith("ffmpeg"));
-  const linux = photoboothConfig({ PHOTOBOOTH_DEVICE: "/dev/video2", PHOTOBOOTH_FFMPEG: "/usr/bin/ffmpeg", PUBLIC_URL: "https://x.test/", PHOTOBOOTH_TTL: "20" }, "linux");
-  assert.deepEqual(linux, { device: "/dev/video2", ffmpeg: "/usr/bin/ffmpeg", publicUrl: "https://x.test", ttl: 20 });
+  assert.deepEqual([mac.gamma, mac.dump, mac.controls], [1, null, []]);
+  const linux = photoboothConfig({ PHOTOBOOTH_DEVICE: "/dev/video2", PHOTOBOOTH_FFMPEG: "/usr/bin/ffmpeg", PUBLIC_URL: "https://x.test/", PHOTOBOOTH_TTL: "20", PHOTOBOOTH_GAMMA: "0.75", PHOTOBOOTH_DUMP: "data/raw", PHOTOBOOTH_CONTROLS: "backlight_compensation=1, auto_exposure=3" }, "linux");
+  assert.deepEqual(linux, { device: "/dev/video2", ffmpeg: "/usr/bin/ffmpeg", publicUrl: "https://x.test", ttl: 20, gamma: 0.75, dump: "data/raw", controls: ["backlight_compensation=1", "auto_exposure=3"] });
   assert.equal(photoboothConfig({}, "linux").device, "/dev/video0");
+  assert.equal(photoboothConfig({ PHOTOBOOTH_GAMMA: "abc" }).gamma, 1, "a bad gamma falls back to 1");
+  assert.equal(photoboothConfig({ PHOTOBOOTH_GAMMA: "0" }).gamma, 1, "zero is not a gamma");
+});
+
+test("Camera applies v4l2 controls before a capture on linux only", async () => {
+  const { spawn, calls } = fakeSpawn((child, n) => {
+    if (n === 1) { child.emit("close", 0); return; }
+    child.stdout.end(Buffer.from("jpeg"));
+    child.emit("close", 0);
+  });
+  const camera = new Camera({ ffmpeg: "/bin/ffmpeg", device: "/dev/video0", platform: "linux", spawn, controls: ["backlight_compensation=1", "auto_exposure=3"] });
+  assert.equal((await camera.capture()).toString(), "jpeg");
+  assert.equal(calls[0].cmd, "v4l2-ctl");
+  assert.deepEqual(calls[0].args, ["-d", "/dev/video0", "--set-ctrl", "backlight_compensation=1", "--set-ctrl", "auto_exposure=3"]);
+  assert.equal(calls[1].cmd, "/bin/ffmpeg");
+  const mac = fakeSpawn((child) => { child.stdout.end(Buffer.from("jpeg")); child.emit("close", 0); });
+  const macCamera = new Camera({ ffmpeg: "/bin/ffmpeg", device: "0", platform: "darwin", spawn: mac.spawn, controls: ["backlight_compensation=1"] });
+  await macCamera.capture();
+  assert.equal(mac.calls.length, 1, "no v4l2-ctl on macOS");
+});
+
+test("a failing v4l2-ctl does not stop the capture", async () => {
+  const { spawn } = fakeSpawn((child, n) => {
+    if (n === 1) { child.stderr.end("unknown control"); child.emit("close", 1); return; }
+    child.stdout.end(Buffer.from("jpeg"));
+    child.emit("close", 0);
+  });
+  const camera = new Camera({ ffmpeg: "/bin/ffmpeg", device: "/dev/video0", platform: "linux", spawn, controls: ["nope=1"] });
+  assert.equal((await camera.capture()).toString(), "jpeg");
 });

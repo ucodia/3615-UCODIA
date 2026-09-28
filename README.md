@@ -69,6 +69,9 @@ Menu key `P`. The server takes a still from the webcam with ffmpeg (the `ffmpeg-
 | `PHOTOBOOTH_FFMPEG` | the `ffmpeg-static` binary                |
 | `PUBLIC_URL`        | `http://localhost:3615`                   |
 | `PHOTOBOOTH_TTL`    | `300` seconds                             |
+| `PHOTOBOOTH_GAMMA`  | `1`. Below 1 lifts the mid-tones before quantising, `0.75` suits faces against a bright background |
+| `PHOTOBOOTH_CONTROLS` | none. Comma-separated v4l2 controls applied with `v4l2-ctl` before each shot on Linux, e.g. `backlight_compensation=1` |
+| `PHOTOBOOTH_DUMP`   | unset. A directory that receives the raw JPEG of every capture as `<hash>.jpg`, for tuning; leave unset in normal operation |
 
 The gallery terminal is an ESP32 bridging the Minitel to this server. Its firmware lives in [`esp32/`](esp32/README.md) and is configured from the same `.env`.
 

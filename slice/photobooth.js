@@ -31,14 +31,14 @@ export function hashOf(jpeg) {
 }
 
 // Every look at once, mirrored like a mirror, with one prepare per cell size.
-export async function convertAll(jpeg) {
+export async function convertAll(jpeg, { gamma = 1 } = {}) {
   const fields = new Map();
   const cells = new Map();
   for (const name of FILTERS) {
     const preset = PRESETS[name];
     const cell = cellSize(preset.method);
     const key = cell.join("x");
-    if (!fields.has(key)) fields.set(key, await prepare(jpeg, COLS, ROWS, { cell, mirror: true }));
+    if (!fields.has(key)) fields.set(key, await prepare(jpeg, COLS, ROWS, { cell, mirror: true, gamma }));
     cells.set(name, toCells(applyFilter(fields.get(key), preset.filter), preset));
   }
   return cells;
@@ -51,7 +51,9 @@ export function createPhotobooth({
   makeMinitel = (websocket) => new Minitel(websocket),
   sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   render = renderPng,
-  convert = convertAll,
+  gamma = 1,
+  convert = (jpeg) => convertAll(jpeg, { gamma }),
+  dump = null,
   log = logger,
   ttl = 300,
 }) {
@@ -102,7 +104,9 @@ export function createPhotobooth({
       await show(renderSmile());
       try {
         const jpeg = await camera.capture();
-        shot = { hash: hashOf(jpeg), cells: await convert(jpeg), pngs: new Map() };
+        const hash = hashOf(jpeg);
+        if (dump) await dump(jpeg, hash).catch((error) => log.warn(`Photobooth: dump failed: ${error.message}`));
+        shot = { hash, cells: await convert(jpeg), pngs: new Map() };
         index = 0;
         log.info(`Photobooth: captured ${shot.hash}`);
         await showPicture();
