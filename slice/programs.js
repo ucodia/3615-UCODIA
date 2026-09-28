@@ -4,7 +4,17 @@ import { venablesVibes } from "./venables.js";
 import { createPhotobooth } from "./photobooth.js";
 import { BrowserCamera } from "../photobooth/browser-camera.js";
 
-export function buildPrograms({ camera, store, config, dump = null, makeBrowserCamera = (ws) => new BrowserCamera({ websocket: ws }) }) {
+const cameras = new WeakMap();
+function browserCameraFor(ws) {
+  let camera = cameras.get(ws);
+  if (!camera) {
+    camera = new BrowserCamera({ websocket: ws });
+    cameras.set(ws, camera);
+  }
+  return camera;
+}
+
+export function buildPrograms({ camera, store, config, dump = null, makeBrowserCamera = browserCameraFor }) {
   const shared = { store, publicUrl: config.publicUrl, ttl: config.ttl };
   return [
     { key: "1", title: "exhibits calendar", handoff: (ws) => sliceSchedule(ws, "exhibits") },

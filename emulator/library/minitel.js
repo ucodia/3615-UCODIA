@@ -4874,23 +4874,37 @@ Minitel.Emulator = class {
   async photobooth(blob) {
     const [byte] = new Uint8Array(await blob.arrayBuffer());
     if (byte === 1) await this.cameraOn();
-    else if (byte === 2) this.socket.send(this.frame());
-    else if (byte === 3) this.cameraOff();
+    else if (byte === 2) {
+      if (this.cameraRequest) await this.cameraRequest;
+      this.socket.send(this.frame());
+    } else if (byte === 3) this.cameraOff();
   }
 
-  async cameraOn() {
-    if (this.camera) return;
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
-      const video = document.createElement("video");
-      video.srcObject = stream;
-      video.muted = true;
-      video.playsInline = true;
-      await video.play();
-      this.camera = { stream, video };
-    } catch (error) {
-      this.camera = undefined;
-    }
+  // A camera-off while the permission prompt is open bumps the generation, so the
+  // stream is released as soon as it arrives instead of staying on.
+  cameraOn() {
+    if (this.camera || this.cameraRequest) return this.cameraRequest;
+    const generation = (this.cameraGeneration = (this.cameraGeneration || 0) + 1);
+    this.cameraRequest = (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+        const video = document.createElement("video");
+        video.srcObject = stream;
+        video.muted = true;
+        video.playsInline = true;
+        await video.play();
+        if (generation !== this.cameraGeneration) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        this.camera = { stream, video };
+      } catch (error) {
+        // no camera: captures answer with an empty frame
+      } finally {
+        if (generation === this.cameraGeneration) this.cameraRequest = undefined;
+      }
+    })();
+    return this.cameraRequest;
   }
 
   // 320 by 240 RGB, centre cover crop, not mirrored: the server mirrors.
@@ -4919,6 +4933,8 @@ Minitel.Emulator = class {
   }
 
   cameraOff() {
+    this.cameraGeneration = (this.cameraGeneration || 0) + 1;
+    this.cameraRequest = undefined;
     if (!this.camera) return;
     this.camera.stream.getTracks().forEach((track) => track.stop());
     this.camera.video.srcObject = null;
