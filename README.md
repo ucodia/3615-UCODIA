@@ -52,6 +52,10 @@ Copy `.env.example` to `.env` and fill it in. The file is ignored by git and rea
 | `TERMINAL_TOKEN` | shared secret the ESP32 presents as its websocket subprotocol; at least 32 characters, `openssl rand -hex 32` |
 | `WIFI_SSID_n`, `WIFI_PASSWORD_n` | networks the ESP32 tries in order, numbered from 1 |
 | `PHOTOBOOTH_*` | optional, see the photobooth section |
+| `IDLE_SECONDS` | `180`. Seconds without a key before the attract screen; keep it under the terminal's own standby of four to five minutes |
+| `KEEPALIVE_SECONDS` | `30`. Interval of the ignored byte sent while a page is in use so the terminal never blanks; `0` disables it |
+
+A Minitel 1B turns its screen off after four to five minutes without received data or a key press. After `IDLE_SECONDS` without a key the server abandons the current page and shows an animated "press any key" screen, which also keeps the terminal awake; any key returns to the welcome page. While a page is in use a NUL goes out every `KEEPALIVE_SECONDS` so the screen stays on.
 
 To test the terminal pages from a browser, open the emulator with the token in the url, `http://localhost:3615/?token=<TERMINAL_TOKEN>`: the page offers it as the websocket subprotocol and the server treats that browser as the terminal. Outside production the server prints that url at startup. The token then sits in the browser history, so do this on your own machine only.
 

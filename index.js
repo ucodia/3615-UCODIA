@@ -1,4 +1,5 @@
-import { Minitel } from "./minitel.js";
+import { Minitel, IdleError } from "./minitel.js";
+import { startIdle, runAttract } from "./slice/attract.js";
 import { startServer } from "./server.js";
 import { sliceSchedule } from "./slice/schedule.js";
 import { omeletteFacts } from "./slice/omelette.js";
@@ -8,13 +9,14 @@ import { Camera } from "./photobooth/camera.js";
 import { PhotoStore } from "./photobooth/store.js";
 import { photoboothConfig } from "./photobooth/config.js";
 import { programsFor } from "./slice/menu.js";
-import { terminalToken } from "./config.js";
+import { terminalToken, idleConfig } from "./config.js";
 import logger from "./logger.js";
 import { fileURLToPath } from "url";
 import { dirname, join, resolve } from "path";
 import { mkdir, writeFile } from "fs/promises";
 
 const config = photoboothConfig();
+const idle = idleConfig();
 const camera = new Camera({ ffmpeg: config.ffmpeg, device: config.device, controls: config.controls });
 const dump = config.dump
   ? async (jpeg, hash) => {
@@ -40,6 +42,9 @@ const allPrograms = [
 async function welcomePage(websocket, req, { terminal = false } = {}) {
   const m = new Minitel(websocket);
   const programs = programsFor(allPrograms, { terminal });
+  const watch = () => startIdle(m, { ...idle, onIdle: () => m.cancelRead(new IdleError()) });
+  let watchdog = watch();
+  websocket.on("close", () => watchdog.stop());
 
   // Function to display the welcome page
   async function displayWelcome() {
@@ -65,34 +70,43 @@ async function welcomePage(websocket, req, { terminal = false } = {}) {
 
   // Handle user input
   while (true) {
-    // Display instruction on before last row (row 23) and position cursor right after
-    await m.pos(23, 2);
-    const promptText = `select an option (${programs.map((p) => p.key).join(",")}): `;
-    await m.print(promptText);
+    try {
+      // Display instruction on before last row (row 23) and position cursor right after
+      await m.pos(23, 2);
+      const promptText = `select an option (${programs.map((p) => p.key).join(",")}): `;
+      await m.print(promptText);
 
-    // Get input at the position right after the prompt text
-    const [input, key] = await m.input(
-      23,
-      2 + promptText.length,
-      1,
-      "",
-      " ",
-      false,
-      true,
-    );
+      // Get input at the position right after the prompt text
+      const [input, key] = await m.input(
+        23,
+        2 + promptText.length,
+        1,
+        "",
+        " ",
+        false,
+        true,
+      );
 
-    const program =
-      key === m.envoi &&
-      programs.find((p) => p.key === input?.trim().toUpperCase());
+      const program =
+        key === m.envoi &&
+        programs.find((p) => p.key === input?.trim().toUpperCase());
 
-    if (program) {
-      await m.cls();
-      await program.handoff(websocket);
+      if (program) {
+        await m.cls();
+        await program.handoff(websocket);
+        await displayWelcome();
+      } else {
+        await m.message(0, 1, 2, "Invalid option", true);
+        await m.del(23, 2 + promptText.length);
+        await m.pos(23, 2 + promptText.length);
+      }
+    } catch (error) {
+      if (!(error instanceof IdleError)) throw error;
+      logger.info("Idle: attract screen");
+      watchdog.stop();
+      await runAttract(m);
+      watchdog = watch();
       await displayWelcome();
-    } else {
-      await m.message(0, 1, 2, "Invalid option", true);
-      await m.del(23, 2 + promptText.length);
-      await m.pos(23, 2 + promptText.length);
     }
   }
 }
@@ -112,6 +126,7 @@ async function welcomePage(websocket, req, { terminal = false } = {}) {
   }
   const token = terminalToken();
   if (!token) logger.warn("TERMINAL_TOKEN is unset or shorter than 32 characters: no connection can use the photobooth");
+  logger.info(`Attract screen after ${idle.idleMs / 1000} s idle, keep-alive every ${idle.keepaliveMs / 1000} s`);
   startServer(welcomePage, 3615, { photoStore, terminalToken: token, publicUrl: config.publicUrl });
   if (token && process.env.NODE_ENV !== "production") {
     logger.info(`Emulator as the terminal (token in the url, not logged in production): ${config.publicUrl}/?token=${token}`);
