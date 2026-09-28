@@ -7,6 +7,8 @@ import { WebSocketServer } from "ws";
 import logger from "./logger.js";
 import { vdtHandler } from "./image/api.js";
 
+const MAX_PAYLOAD = 512 * 1024;
+
 function getClientIp(req) {
   return (
     req.headers["cf-connecting-ip"] ||
@@ -41,7 +43,7 @@ export function selectProtocol(token) {
 export function startServer(serviceHandler, port, { photoStore = null, sweepMs = 60000, terminalToken = null, publicUrl = null } = {}) {
   const app = express();
   const server = http.createServer(app);
-  const wss = new WebSocketServer({ server, handleProtocols: selectProtocol(terminalToken) });
+  const wss = new WebSocketServer({ server, handleProtocols: selectProtocol(terminalToken), maxPayload: MAX_PAYLOAD });
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
   app.use((req, res, next) => {

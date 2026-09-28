@@ -1,11 +1,8 @@
 import { Minitel, IdleError, ClosedError } from "./minitel.js";
 import { startIdle, runAttract } from "./slice/attract.js";
 import { startServer } from "./server.js";
-import { sliceSchedule } from "./slice/schedule.js";
-import { omeletteFacts } from "./slice/omelette.js";
-import { venablesVibes } from "./slice/venables.js";
-import { createPhotobooth } from "./slice/photobooth.js";
 import { Camera } from "./photobooth/camera.js";
+import { buildPrograms } from "./slice/programs.js";
 import { PhotoStore } from "./photobooth/store.js";
 import { photoboothConfig } from "./photobooth/config.js";
 import { programsFor } from "./slice/menu.js";
@@ -30,13 +27,7 @@ const photoStore = new PhotoStore({
   ttlMs: config.ttl * 1000,
 });
 
-const allPrograms = [
-  { key: "1", title: "exhibits calendar", handoff: (ws) => sliceSchedule(ws, "exhibits") },
-  { key: "2", title: "workshops calendar", handoff: (ws) => sliceSchedule(ws, "workshops") },
-  { key: "3", title: "omelette facts", handoff: omeletteFacts },
-  { key: "V", title: "venables vibes", handoff: venablesVibes },
-  { key: "P", title: "photobooth", terminalOnly: true, handoff: createPhotobooth({ camera, store: photoStore, publicUrl: config.publicUrl, ttl: config.ttl, gamma: config.gamma, dump }) },
-];
+const allPrograms = buildPrograms({ camera, store: photoStore, config, dump });
 
 // Welcome page handler
 async function welcomePage(websocket, req, { terminal = false } = {}) {

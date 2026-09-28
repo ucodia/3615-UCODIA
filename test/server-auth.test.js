@@ -78,3 +78,13 @@ test("startupUrls uses the public url when given and localhost otherwise", async
   assert.deepEqual(startupUrls(3615, "https://slice.example.com/"), { emulator: "https://slice.example.com", websocket: "wss://slice.example.com" });
   assert.deepEqual(startupUrls(3615, "http://minitelpi:3615"), { emulator: "http://minitelpi:3615", websocket: "ws://minitelpi:3615" });
 });
+
+test("a message above the payload cap closes the connection with 1009", async () => {
+  await withServer(null, async (url) => {
+    const ws = new WebSocket(url);
+    await once(ws, "open");
+    ws.send(Buffer.alloc(600 * 1024));
+    const [code] = await once(ws, "close");
+    assert.equal(code, 1009);
+  });
+});
