@@ -141,23 +141,26 @@ export function createPhotobooth({
     }
 
     await show(renderIdle());
-    while (true) {
-      const [char, key] = await m.key();
-      lastKey = key;
-      const letter = char.toUpperCase();
-      if (key === m.sommaire) break;
-      if (char === " ") {
-        await capture();
-      } else if (letter === "F" && shot) {
-        index = (index + 1) % FILTERS.length;
-        await showPicture();
-      } else if (letter === "D" && shot) {
-        await download();
-      } else {
-        await notify("keys at the bottom");
+    try {
+      while (true) {
+        const [char, key] = await m.key();
+        lastKey = key;
+        const letter = char.toUpperCase();
+        if (key === m.sommaire) break;
+        if (char === " ") {
+          await capture();
+        } else if (letter === "F" && shot) {
+          index = (index + 1) % FILTERS.length;
+          await showPicture();
+        } else if (letter === "D" && shot) {
+          await download();
+        } else {
+          await notify("keys at the bottom");
+        }
       }
+    } finally {
+      clearTimeout(erase);
     }
-    clearTimeout(erase);
     return lastKey;
   };
 }

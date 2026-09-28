@@ -103,8 +103,12 @@ async function venablesVibes(websocket) {
     }
 
     const stopMarquee = startMarquee(m, page);
-    const [char, key] = await m.key();
-    stopMarquee();
+    let char, key;
+    try {
+      [char, key] = await m.key();
+    } finally {
+      stopMarquee();
+    }
     lastKey = key;
 
     if (key === m.suite || key === m.droite || char.toUpperCase() === "E") {

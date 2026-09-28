@@ -4,6 +4,7 @@ import { createPhotobooth, hashOf, convertAll } from "../slice/photobooth.js";
 import sharp from "sharp";
 import { FILTERS, FILTER_CODES, renderIdle, renderPicture, renderCountdown } from "../slice/photobooth-screens.js";
 import { encode } from "../screen.js";
+import { IdleError } from "../minitel.js";
 import { LEVELS } from "../image/levels.js";
 
 // A Minitel stand-in: records calls, feeds scripted keys, and, like the real
@@ -12,6 +13,7 @@ function stubMinitel(script) {
   const calls = [];
   const queue = [...script];
   let pending = null;
+  let pendingReject = null;
   const m = {
     sommaire: 6, envoi: 1, noir: 0, blanc: 7,
     calls,
@@ -24,13 +26,14 @@ function stubMinitel(script) {
     async color(c) { calls.push(["color", c]); },
     async plot(ch, n) { calls.push(["plot", ch, n]); },
     press(char) { if (pending) { const r = pending; pending = null; r(char); } },
+    fail(error) { if (pending) { const r = pendingReject; pending = null; pendingReject = null; r(error); } },
     async key() {
       calls.push(["key"]);
       if (queue.length) {
         const next = queue.shift();
         return typeof next === "number" ? ["", next] : [next, 0];
       }
-      const char = await new Promise((resolve) => { pending = resolve; });
+      const char = await new Promise((resolve, reject) => { pending = resolve; pendingReject = reject; });
       return typeof char === "number" ? ["", char] : [char, 0];
     },
   };
@@ -249,4 +252,15 @@ test("d publishes under the short filter code", async () => {
   const { store, run } = harness([" ", ...Array(FILTERS.length - 1).fill("f"), "d", "x", 6]);
   await run();
   assert.deepEqual(store.published, [`${hashOf(JPEG)}-type.png`]);
+});
+
+test("cancellation while waiting for a key propagates and clears the notification timer", async () => {
+  const { m, run } = harness(["x"]);
+  const pending = run();
+  await new Promise((r) => setTimeout(r, 20));
+  m.fail(new IdleError());
+  await assert.rejects(Promise.race([pending, new Promise((_, reject) => setTimeout(() => reject(new Error("hung")), 500))]), IdleError);
+  const before = m.calls.length;
+  await new Promise((r) => setTimeout(r, 2200));
+  assert.equal(m.calls.length, before, "the erase timer was cleared on cancellation");
 });
