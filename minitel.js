@@ -4,7 +4,16 @@ import { dirname, join } from "path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+export class IdleError extends Error {
+  constructor() {
+    super("idle");
+    this.name = "IdleError";
+  }
+}
+
 export class Minitel {
+  #pendingReject = null;
+
   /**
    * Class for managing videotex input/output with a Minitel
    * @param {WebSocket} websocket - WebSocket connection
@@ -12,6 +21,10 @@ export class Minitel {
   constructor(websocket) {
     this.ecrans = { last: null };
     this.ws = websocket;
+    this.lastActivity = Date.now();
+    if (typeof websocket.on === "function") {
+      websocket.on("message", () => { this.lastActivity = Date.now(); });
+    }
     this.buffer = "";
     this.lastkey = 0;
     this.lastscreen = "";
@@ -77,14 +90,13 @@ export class Minitel {
   async #read(maxlen = 1) {
     if (this.buffer.length < maxlen) {
       try {
-        // This assumes the WebSocket is set up to receive messages
-        // and store them in a way that can be accessed here
-        const data = await new Promise((resolve) => {
+        const data = await new Promise((resolve, reject) => {
+          this.#pendingReject = reject;
           this.ws.onmessage = (event) => resolve(event.data);
         });
         this.buffer += data;
-      } catch (error) {
-        console.error("Error reading from WebSocket:", error);
+      } finally {
+        this.#pendingReject = null;
       }
     }
 
@@ -95,6 +107,13 @@ export class Minitel {
     }
 
     return data;
+  }
+
+  // Rejects the read a page is waiting on, if any; used by the idle timer.
+  cancelRead(error) {
+    const reject = this.#pendingReject;
+    this.#pendingReject = null;
+    if (reject) reject(error);
   }
 
   #inWaiting() {
