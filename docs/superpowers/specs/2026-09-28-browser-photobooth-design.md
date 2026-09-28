@@ -53,10 +53,10 @@ Emulator to server, one message per capture request:
 **`photobooth/browser-camera.js`**, new. `BrowserCamera({ websocket, timeoutMs = 10000, width = 320, height = 240 })` exposes the same `capture()` as the webcam `Camera`, plus `open()` and `close()`:
 
 - `open()` sends `0x01`, `close()` sends `0x03`. Both are fire-and-forget.
-- `capture()` sends `0x02`, then resolves with the next binary message from the socket when its length is `width × height × 3`, rejects with an `Error("no camera")` on an empty message, `Error("bad frame")` on any other length, and `Error("camera timeout")` after `timeoutMs`. One capture is in flight at a time; a second call while one is pending rejects. The listener is removed on every exit.
+- `capture()` sends `0x02`, then resolves with the next binary message from the socket when its length is `width × height × 3`, rejects with an `Error("no camera")` on an empty message, `Error("bad frame")` on any other length, and `Error("camera timeout")` after `timeoutMs`. One capture is in flight at a time; a second call while one is pending rejects. A binary message arriving while no capture is pending is dropped. One message listener is registered in the constructor for the life of the connection; the pending capture is cleared on every outcome.
 - The result is a `Buffer` tagged for the pipeline: `{ data, raw: { width, height, channels: 3 } }`.
 
-The webcam `Camera` gains `open()` and `close()` as no-ops so the photobooth page calls them without knowing which camera it has.
+The photobooth page calls `camera.open?.()` and `camera.close?.()`, so the webcam `Camera` and the test stubs need no such methods.
 
 **`image/prepare.js`**: `prepare(source, cols, rows, options)` accepts `source` as a Buffer, as today, or as `{ data, raw }`; in the second form `sharp(data, { raw })` opens the pipeline with no decoder. `limitInputPixels` stays for the Buffer form. The resize to `cols × 8` by `rows × 10` is an identity on a frame of that size, so the two-pipeline structure is unchanged.
 
@@ -66,15 +66,15 @@ The webcam `Camera` gains `open()` and `close()` as no-ops so the photobooth pag
 
 **`server.js`**: `new WebSocketServer({ ..., maxPayload: 512 * 1024 })`. `ws` closes a connection that sends a larger message with code 1009 before delivering it. The cap leaves room for one frame plus framing and nothing else.
 
-**`index.js`**: the webcam `Camera` and the terminal photobooth are built as today. A second photobooth entry for public connections is built per connection, since the browser camera holds the socket:
+**`slice/programs.js`**, new: the program list moves out of `index.js` into `buildPrograms({ camera, store, config, dump, makeBrowserCamera })`, so a test can build it without starting a server. The webcam `Camera` and the terminal photobooth are built as today. A second photobooth entry for public connections builds its camera per connection, since the browser camera holds the socket:
 
 ```js
-{ key: "P", title: "photobooth", handoff: (ws) => createPhotobooth({ camera: new BrowserCamera({ websocket: ws }), store: photoStore, publicUrl: config.publicUrl, ttl: config.ttl })(ws) }
+{ key: "P", title: "photobooth", terminal: false, handoff: (ws) => createPhotobooth({ camera: makeBrowserCamera(ws), store, publicUrl: config.publicUrl, ttl: config.ttl })(ws) }
 ```
 
-`programsFor` picks the terminal entry for terminal connections and the browser entry for the others; `terminalOnly` becomes `terminal: true | false` on the two photobooth entries, with entries that have no flag offered to everyone. The public photobooth uses gamma 1 and no dump: `PHOTOBOOTH_GAMMA` and `PHOTOBOOTH_CONTROLS` describe the gallery webcam, and the dump writes JPEGs the browser path does not have.
+`programsFor` picks the terminal entry for terminal connections and the browser entry for the others; `terminalOnly` becomes `terminal: true | false` on the two photobooth entries, with entries that have no flag offered to everyone. The public photobooth uses gamma 1 and no dump: `PHOTOBOOTH_GAMMA` and `PHOTOBOOTH_CONTROLS` describe the gallery webcam, and the dump writes JPEGs the browser path does not have. `index.js` calls `buildPrograms` with the real camera and store.
 
-The isolation property is expressed in code, not convention: the webcam `Camera` instance is referenced only by the terminal entry, and a test builds the program list for a public connection with a webcam stub whose `capture()` fails the test.
+The isolation property is expressed in code, not convention: the webcam `Camera` instance is referenced only by the terminal entry, and a test builds the program list for a public connection with a webcam stub whose `capture()` fails the test, runs the public photobooth over a fake socket, and checks the browser camera factory was called with that socket.
 
 ### 3. Emulator (`emulator/library/minitel.js`)
 
@@ -96,7 +96,8 @@ No new keys. `README.md`: the photobooth paragraph says web visitors use their b
 - `test/browser-camera.test.js`, new, with a stub websocket: `open()` and `close()` send the right byte; `capture()` sends `0x02`, resolves with a tagged frame on a message of 230400 bytes, rejects on an empty message, on a wrong length, and after the timeout with short delays; a text message during a capture is ignored; a second capture while one is pending rejects; the listener is gone after each outcome.
 - `test/prepare.test.js` (or the existing image tests): a raw 320 × 240 source and the same image encoded as PNG produce identical fields.
 - `test/minitel-read.test.js`: a binary message between two keys is skipped by `key()`; a binary message updates `lastActivity`.
-- `test/server-auth.test.js` or `test/api.test.js`: a client sending a message above the cap is closed with 1009; a public connection's program list contains a photobooth whose camera is a `BrowserCamera`; the webcam stub is never called for a public connection.
+- `test/server-auth.test.js`: a client sending a message above the cap is closed with 1009.
+- `test/programs.test.js`, new: the public list has one photobooth entry, running it over a fake socket calls the browser camera factory with that socket and never the webcam stub; the terminal list has one photobooth entry built with the webcam and never calls the factory.
 - `test/menu.test.js`: `programsFor` selects by the `terminal` flag and keeps unflagged entries for both.
 - `test/photobooth.test.js`: `open()` is called once the idle screen is shown and `close()` on exit, including exit through a cancelled read; a capture rejection shows "camera not available".
 - By hand in the browser: permission prompt on entering `P`, picture after the countdown, all filters, QR page, refusal shows the notification, camera indicator goes out on SOMMAIRE.
@@ -105,19 +106,20 @@ No new keys. `README.md`: the photobooth paragraph says web visitors use their b
 
 ```
 photobooth/browser-camera.js       new
-photobooth/camera.js               open() and close() no-ops
 image/prepare.js                   raw source form
-slice/photobooth.js                convertAll and hashOf accept the tagged frame; open/close calls
+slice/photobooth.js                hashOf accepts the tagged frame; open/close calls
+slice/programs.js                  new: the program list, with the public photobooth entry
 slice/menu.js                      terminal flag selection
 minitel.js                         binary messages skipped by the reader
 server.js                          maxPayload
-index.js                           public photobooth entry with BrowserCamera
+index.js                           uses buildPrograms
 emulator/library/minitel.js        binary branch, camera on/capture/off
 README.md                          photobooth for web visitors
 test/browser-camera.test.js        new
+test/programs.test.js              new: isolation
 test/minitel-read.test.js          binary skip
 test/menu.test.js                  terminal flag
-test/photobooth.test.js            open/close, rejection path
-test/server-auth.test.js           payload cap, public entry, isolation
-image tests                        raw source equivalence
+test/photobooth.test.js            open/close, tagged hash
+test/server-auth.test.js           payload cap
+test/prepare.test.js               raw source equivalence
 ```
