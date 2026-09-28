@@ -26,8 +26,8 @@ const BLANC = 7;
 const ROWS = 24;
 const COUNTDOWN_MS = 1000;
 
-export function hashOf(jpeg) {
-  return createHash("sha256").update(jpeg).digest("hex").slice(0, 7);
+export function hashOf(source) {
+  return createHash("sha256").update(source.data ?? source).digest("hex").slice(0, 7);
 }
 
 // Every look at once, mirrored like a mirror, with one prepare per cell size.
@@ -141,6 +141,7 @@ export function createPhotobooth({
     }
 
     await show(renderIdle());
+    camera.open?.();
     try {
       while (true) {
         const [char, key] = await m.key();
@@ -160,6 +161,7 @@ export function createPhotobooth({
       }
     } finally {
       clearTimeout(erase);
+      camera.close?.();
     }
     return lastKey;
   };

@@ -264,3 +264,30 @@ test("cancellation while waiting for a key propagates and clears the notificatio
   await new Promise((r) => setTimeout(r, 2200));
   assert.equal(m.calls.length, before, "the erase timer was cleared on cancellation");
 });
+
+test("hashOf hashes the pixels of a tagged frame", () => {
+  const data = Buffer.from("pixels");
+  assert.equal(hashOf({ data, raw: { width: 1, height: 2, channels: 3 } }), hashOf(data));
+});
+
+test("the page opens the camera once the idle screen shows and closes it on exit", async () => {
+  const { m, camera, run } = harness([6]);
+  camera.open = () => m.calls.push(["camera", "open"]);
+  camera.close = () => m.calls.push(["camera", "close"]);
+  await run();
+  const idle = m.calls.findIndex((c) => c[0] === "send" && c[1] === encode(renderIdle()));
+  const open = m.calls.findIndex((c) => c[0] === "camera" && c[1] === "open");
+  assert.ok(idle >= 0 && open > idle, "open comes after the idle screen");
+  assert.deepEqual(m.calls.at(-1), ["camera", "close"]);
+});
+
+test("the camera is closed when the key read is cancelled", async () => {
+  const { m, camera, run } = harness([]);
+  let closed = 0;
+  camera.close = () => { closed++; };
+  const pending = run();
+  await new Promise((r) => setTimeout(r, 5));
+  m.fail(new IdleError());
+  await assert.rejects(Promise.race([pending, new Promise((_, reject) => setTimeout(() => reject(new Error("hung")), 500))]), IdleError);
+  assert.equal(closed, 1);
+});
