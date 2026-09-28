@@ -18,12 +18,12 @@ Install arduino-cli, the ESP32 core and the two libraries once:
     arduino-cli config init
     arduino-cli config add board_manager.additional_urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
     arduino-cli core update-index
-    arduino-cli core install esp32:esp32
+    arduino-cli core install esp32:esp32@2.0.17
     arduino-cli lib install WebSockets
     arduino-cli config set library.enable_unsafe_install true
     arduino-cli lib install --git-url https://github.com/eserandour/Minitel1B_Hard.git
 
-`WebSockets` is the Links2004 arduinoWebSockets library from the library manager. `Minitel1B_Hard` is Eric Sérandour's and is not in the library manager, hence the install from its repository, which arduino-cli only allows once unsafe installs are enabled. The ESP32 core is several GB. The board is `esp32:esp32:esp32` (ESP32 Dev Module), set in `package.json`. A compile with a generated header reports about 1.07 MB of program storage, 81% of the board.
+The ESP32 core must stay on 2.0.x, pinned at 2.0.17: the Minitel-ESP32 project warns against 3.x and in practice a sketch built on 3.3 leaves the Minitel blank. `npm run esp32:build` refuses to compile on another major version. `WebSockets` is the Links2004 arduinoWebSockets library from the library manager. `Minitel1B_Hard` is Eric Sérandour's and is not in the library manager, hence the install from its repository, which arduino-cli only allows once unsafe installs are enabled. The ESP32 core is several GB. The board is `esp32:esp32:esp32` (ESP32 Dev Module), set in `package.json`. A compile with a generated header reports about 1.07 MB of program storage, 81% of the board.
 
 ## Build and flash
 
