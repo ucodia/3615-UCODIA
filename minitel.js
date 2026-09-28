@@ -114,7 +114,7 @@ export class Minitel {
       try {
         const data = await new Promise((resolve, reject) => {
           this.#pendingReject = reject;
-          this.ws.onmessage = (event) => resolve(event.data);
+          this.ws.onmessage = (event) => { if (typeof event.data === "string") resolve(event.data); };
         });
         this.buffer += data;
       } finally {

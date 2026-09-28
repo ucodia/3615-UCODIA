@@ -85,3 +85,21 @@ test("close rejects the pending read and every later read with ClosedError", asy
   await assert.rejects(within(m.key()), ClosedError);
   assert.equal(m.closed, true);
 });
+
+test("a binary message that spells a key sequence is not read as a key", async () => {
+  const ws = fakeSocket();
+  const m = new Minitel(ws);
+  const next = m.key();
+  ws.deliver(Buffer.from("\x13F"));
+  ws.deliver("b");
+  assert.deepEqual(await within(next), ["b", 0]);
+});
+
+test("a binary message counts as activity", async () => {
+  const ws = fakeSocket();
+  const m = new Minitel(ws);
+  const before = m.lastActivity;
+  await new Promise((r) => setTimeout(r, 5));
+  ws.deliver(Buffer.alloc(3));
+  assert.ok(m.lastActivity > before);
+});
