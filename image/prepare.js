@@ -7,7 +7,8 @@ export async function prepare(source, cols, rows, { position = "centre", levels 
   const width = cols * cell[0];
   const height = rows * cell[1];
   // sharp keeps only the last resize of a pipeline, so crop and resample are two pipelines
-  let pipeline = sharp(source, { limitInputPixels: maxPixels }).flatten({ background: "#000000" });
+  const input = source.raw ? sharp(source.data, { raw: source.raw }) : sharp(source, { limitInputPixels: maxPixels });
+  let pipeline = input.flatten({ background: "#000000" });
   if (mirror) pipeline = pipeline.flop();
   const cropped = await pipeline
     .resize(cols * 8, rows * 10, { fit: "cover", position })

@@ -95,3 +95,19 @@ test("prepare can mirror the image horizontally", async () => {
   assert.ok(plain.data[0] < 0.1 && plain.data[79] > 0.9);
   assert.ok(mirrored.data[0] > 0.9 && mirrored.data[79] < 0.1);
 });
+
+test("prepare takes raw pixels tagged with their geometry and matches the same image encoded", async () => {
+  const width = 320, height = 240;
+  const data = Buffer.alloc(width * height * 3);
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 3;
+      data[i] = Math.round((x / 319) * 255);
+      data[i + 1] = Math.round((y / 239) * 255);
+      data[i + 2] = 128;
+    }
+  const encoded = await sharp(data, { raw: { width, height, channels: 3 } }).png().toBuffer();
+  const a = await prepare({ data, raw: { width, height, channels: 3 } }, 40, 24, { mirror: true });
+  const b = await prepare(encoded, 40, 24, { mirror: true });
+  assert.deepEqual(Array.from(a.data), Array.from(b.data));
+});
