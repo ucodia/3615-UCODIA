@@ -1,4 +1,4 @@
-import { Minitel, IdleError } from "./minitel.js";
+import { Minitel, IdleError, ClosedError } from "./minitel.js";
 import { startIdle, runAttract } from "./slice/attract.js";
 import { startServer } from "./server.js";
 import { sliceSchedule } from "./slice/schedule.js";
@@ -44,7 +44,7 @@ async function welcomePage(websocket, req, { terminal = false } = {}) {
   const programs = programsFor(allPrograms, { terminal });
   const watch = () => startIdle(m, { ...idle, onIdle: () => m.cancelRead(new IdleError()) });
   let watchdog = watch();
-  websocket.on("close", () => watchdog.stop());
+  websocket.on("close", () => m.close());
 
   // Function to display the welcome page
   async function displayWelcome() {
@@ -65,49 +65,56 @@ async function welcomePage(websocket, req, { terminal = false } = {}) {
     }
   }
 
-  // Display the welcome page
-  await displayWelcome();
+  try {
+    // Display the welcome page
+    await displayWelcome();
 
-  // Handle user input
-  while (true) {
-    try {
-      // Display instruction on before last row (row 23) and position cursor right after
-      await m.pos(23, 2);
-      const promptText = `select an option (${programs.map((p) => p.key).join(",")}): `;
-      await m.print(promptText);
+    // Handle user input
+    while (true) {
+      try {
+        // Display instruction on before last row (row 23) and position cursor right after
+        await m.pos(23, 2);
+        const promptText = `select an option (${programs.map((p) => p.key).join(",")}): `;
+        await m.print(promptText);
 
-      // Get input at the position right after the prompt text
-      const [input, key] = await m.input(
-        23,
-        2 + promptText.length,
-        1,
-        "",
-        " ",
-        false,
-        true,
-      );
+        // Get input at the position right after the prompt text
+        const [input, key] = await m.input(
+          23,
+          2 + promptText.length,
+          1,
+          "",
+          " ",
+          false,
+          true,
+        );
 
-      const program =
-        key === m.envoi &&
-        programs.find((p) => p.key === input?.trim().toUpperCase());
+        const program =
+          key === m.envoi &&
+          programs.find((p) => p.key === input?.trim().toUpperCase());
 
-      if (program) {
-        await m.cls();
-        await program.handoff(websocket);
+        if (program) {
+          await m.cls();
+          await program.handoff(websocket);
+          await displayWelcome();
+        } else {
+          await m.message(0, 1, 2, "Invalid option", true);
+          await m.del(23, 2 + promptText.length);
+          await m.pos(23, 2 + promptText.length);
+        }
+      } catch (error) {
+        if (!(error instanceof IdleError)) throw error;
+        logger.info("Idle: attract screen");
+        watchdog.stop();
+        await runAttract(m);
+        watchdog = watch();
         await displayWelcome();
-      } else {
-        await m.message(0, 1, 2, "Invalid option", true);
-        await m.del(23, 2 + promptText.length);
-        await m.pos(23, 2 + promptText.length);
       }
-    } catch (error) {
-      if (!(error instanceof IdleError)) throw error;
-      logger.info("Idle: attract screen");
-      watchdog.stop();
-      await runAttract(m);
-      watchdog = watch();
-      await displayWelcome();
     }
+  } catch (error) {
+    if (!(error instanceof ClosedError)) throw error;
+    logger.info("Connection closed");
+  } finally {
+    watchdog.stop();
   }
 }
 

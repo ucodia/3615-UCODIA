@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { Minitel, IdleError } from "../minitel.js";
+import { Minitel, IdleError, ClosedError } from "../minitel.js";
 
 function fakeSocket() {
   const ws = { sent: [], handlers: {}, onmessage: null };
@@ -44,4 +44,44 @@ test("input propagates the cancellation", async () => {
   await new Promise((r) => setTimeout(r, 5));
   m.cancelRead(new IdleError());
   await assert.rejects(within(pending), IdleError);
+});
+
+test("one Minitel per socket: a second construction returns the same instance with one listener", () => {
+  const ws = fakeSocket();
+  let listeners = 0;
+  const on = ws.on;
+  ws.on = (event, fn) => { if (event === "message") listeners++; on(event, fn); };
+  const a = new Minitel(ws);
+  const b = new Minitel(ws);
+  assert.equal(a, b);
+  assert.equal(listeners, 1);
+});
+
+test("cancelRead reaches a read started through another construction on the same socket", async () => {
+  const ws = fakeSocket();
+  const welcome = new Minitel(ws);
+  const page = new Minitel(ws);
+  const pending = page.key();
+  welcome.cancelRead(new IdleError());
+  await assert.rejects(within(pending), IdleError);
+});
+
+test("a cancellation with nothing pending is latched and rejects the next read", async () => {
+  const ws = fakeSocket();
+  const m = new Minitel(ws);
+  m.cancelRead(new IdleError());
+  await assert.rejects(within(m.key()), IdleError);
+  const next = m.key();
+  ws.deliver("b");
+  assert.deepEqual(await within(next), ["b", 0], "the latch is consumed once");
+});
+
+test("close rejects the pending read and every later read with ClosedError", async () => {
+  const ws = fakeSocket();
+  const m = new Minitel(ws);
+  const pending = m.key();
+  m.close();
+  await assert.rejects(within(pending), ClosedError);
+  await assert.rejects(within(m.key()), ClosedError);
+  assert.equal(m.closed, true);
 });

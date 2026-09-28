@@ -95,7 +95,10 @@ export function startServer(serviceHandler, port, { photoStore = null, sweepMs =
       logger.error(`[WS] Error: ${error.message}`);
     });
 
-    serviceHandler(ws, req, { terminal });
+    Promise.resolve(serviceHandler(ws, req, { terminal })).catch((error) => {
+      logger.error(`[WS] Page error: ${error.message}`);
+      ws.terminate();
+    });
   });
 
   const interval = setInterval(() => {

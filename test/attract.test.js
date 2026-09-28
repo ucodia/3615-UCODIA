@@ -85,3 +85,9 @@ test("runAttract redraws on each timeout and returns on a key without another fr
   await sleep(50);
   assert.equal(m.sent.length, after, "no frame after the key");
 });
+
+test("runAttract returns when the key read rejects, as on a closed socket", async () => {
+  const m = stub();
+  m.key = () => Promise.reject(new Error("closed"));
+  await Promise.race([runAttract(m, { frameMs: 1000 }), sleep(200).then(() => { throw new Error("hung"); })]);
+});

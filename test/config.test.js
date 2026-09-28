@@ -24,3 +24,9 @@ test("idleConfig defaults to 180 s idle and 30 s keep-alive and reads the enviro
   assert.deepEqual(idleConfig({ IDLE_SECONDS: "60", KEEPALIVE_SECONDS: "0" }), { idleMs: 60000, keepaliveMs: 0 });
   assert.deepEqual(idleConfig({ IDLE_SECONDS: "abc", KEEPALIVE_SECONDS: "-3" }), { idleMs: 180000, keepaliveMs: 30000 });
 });
+
+test("idleConfig treats an empty value as unset and clamps to the timer maximum", () => {
+  assert.deepEqual(idleConfig({ IDLE_SECONDS: "", KEEPALIVE_SECONDS: "" }), { idleMs: 180000, keepaliveMs: 30000 });
+  assert.equal(idleConfig({ IDLE_SECONDS: "99999999" }).idleMs, 2147483000);
+  assert.equal(idleConfig({ KEEPALIVE_SECONDS: "99999999" }).keepaliveMs, 2147483000);
+});

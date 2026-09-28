@@ -11,16 +11,32 @@ export class IdleError extends Error {
   }
 }
 
+export class ClosedError extends Error {
+  constructor() {
+    super("closed");
+    this.name = "ClosedError";
+  }
+}
+
+// One instance per socket: pages construct their own Minitel on the same websocket,
+// and the idle timer must be able to cancel whichever read is pending.
+const INSTANCES = new WeakMap();
+
 export class Minitel {
   #pendingReject = null;
+  #latched = null;
 
   /**
    * Class for managing videotex input/output with a Minitel
    * @param {WebSocket} websocket - WebSocket connection
    */
   constructor(websocket) {
+    const existing = INSTANCES.get(websocket);
+    if (existing) return existing;
+    INSTANCES.set(websocket, this);
     this.ecrans = { last: null };
     this.ws = websocket;
+    this.closed = false;
     this.lastActivity = Date.now();
     if (typeof websocket.on === "function") {
       websocket.on("message", () => { this.lastActivity = Date.now(); });
@@ -88,6 +104,12 @@ export class Minitel {
   }
 
   async #read(maxlen = 1) {
+    if (this.closed) throw new ClosedError();
+    if (this.#latched) {
+      const error = this.#latched;
+      this.#latched = null;
+      throw error;
+    }
     if (this.buffer.length < maxlen) {
       try {
         const data = await new Promise((resolve, reject) => {
@@ -109,11 +131,20 @@ export class Minitel {
     return data;
   }
 
-  // Rejects the read a page is waiting on, if any; used by the idle timer.
+  // Rejects the read a page is waiting on; with none pending, the next read rejects instead.
   cancelRead(error) {
     const reject = this.#pendingReject;
     this.#pendingReject = null;
     if (reject) reject(error);
+    else this.#latched = error;
+  }
+
+  // After the socket closed: the pending read and every later one reject with ClosedError.
+  close() {
+    this.closed = true;
+    this.#latched = null;
+    this.cancelRead(new ClosedError());
+    this.#latched = null;
   }
 
   #inWaiting() {
