@@ -1,6 +1,17 @@
 import { Minitel } from "../minitel.js";
 import logger from "../logger.js";
 
+// Approximate, until the real date is known: she is a Scorpio and turned 7 in 2025.
+const BIRTHDATE = new Date(2018, 10, 1);
+
+function ageInYears(birthdate, today = new Date()) {
+  let age = today.getFullYear() - birthdate.getFullYear();
+  const beforeBirthday =
+    today.getMonth() < birthdate.getMonth() ||
+    (today.getMonth() === birthdate.getMonth() && today.getDate() < birthdate.getDate());
+  return beforeBirthday ? age - 1 : age;
+}
+
 async function omeletteFacts(websocket) {
   const m = new Minitel(websocket);
   await displayOmeletteFacts(m);
@@ -28,7 +39,7 @@ async function displayOmeletteFacts(m) {
       await m.pos(17, 3);
       await m.print("Name:  Omelette");
       await m.pos(18, 3);
-      await m.print("Age:   5 y.o.");
+      await m.print(`Age:   ${ageInYears(BIRTHDATE)} y.o.`);
       await m.pos(19, 3);
       await m.print("Sign:  Scorpio");
       await m.pos(20, 3);
@@ -141,4 +152,4 @@ async function displayGallery(m) {
   }
 }
 
-export { omeletteFacts, displayOmeletteFacts };
+export { omeletteFacts, displayOmeletteFacts, ageInYears };

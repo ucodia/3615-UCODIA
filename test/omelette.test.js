@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { displayOmeletteFacts } from "../slice/omelette.js";
+import { displayOmeletteFacts, ageInYears } from "../slice/omelette.js";
 
 // A Minitel stand-in: records the screens drawn and feeds keys in order.
 function fakeMinitel(keys) {
@@ -61,4 +61,18 @@ test("every gallery screen shows prev 1, next 3 and back SOMMAIRE like the exhib
 test("sommaire on the facts page leaves and reports the key", async () => {
   const m = fakeMinitel(["SOMMAIRE"]);
   assert.equal(await displayOmeletteFacts(m), "SOMMAIRE");
+});
+
+test("age counts completed years, turning over on the birthday itself", () => {
+  const birthdate = new Date(2018, 10, 1);
+  assert.equal(ageInYears(birthdate, new Date(2026, 8, 29)), 7);
+  assert.equal(ageInYears(birthdate, new Date(2026, 10, 1)), 8);
+  assert.equal(ageInYears(birthdate, new Date(2026, 9, 31)), 7);
+});
+
+test("the facts page prints the computed age", async () => {
+  const m = fakeMinitel(["SOMMAIRE"]);
+  await displayOmeletteFacts(m);
+  const age = m.printed.find((t) => t.startsWith("Age:"));
+  assert.equal(age, `Age:   ${ageInYears(new Date(2018, 10, 1))} y.o.`);
 });
