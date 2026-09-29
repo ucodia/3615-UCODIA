@@ -16,7 +16,7 @@ async function displayOmeletteFacts(m) {
       await m.home();
 
       // header
-      await m.xdraw("screens/omelette-small.vdt");
+      await m.xdraw("screens/omelette-face.vdt");
       await m.pos(1, 9);
       await m.color(m.jaune);
       await m.print(`FUN FACTS ABOUT OMELETTE!`);
@@ -67,7 +67,7 @@ async function displayOmeletteFacts(m) {
       // footer menu
       await m.pos(24, 29);
       await m.color(m.vert);
-      await m.print("close up ");
+      await m.print("gallery ");
       await m.inverse();
       await m.color(m.cyan);
       await m.print(" 3 ");
@@ -86,10 +86,7 @@ async function displayOmeletteFacts(m) {
     lastKey = key;
 
     if (key === m.suite || key === m.droite || char === "3") {
-      logger.info("Navigating to fullscreen omelette page");
-      await m.home();
-      await m.xdraw("screens/omelette-large.vdt");
-      await m.key();
+      await displayGallery(m);
     } else if (key === m.retour || key === m.gauche || key === m.sommaire) {
       break;
     } else {
@@ -102,4 +99,46 @@ async function displayOmeletteFacts(m) {
   return lastKey;
 }
 
-export { omeletteFacts };
+const GALLERY = ["01", "02", "03", "04"].map((n) => `screens/omelette-gallery-${n}.vdt`);
+
+// Full-screen pictures with the keys on the bottom row. 1/3 page because SUITE and RETOUR
+// are dead on the gallery terminal; the arrows and SUITE/RETOUR still work in the emulator.
+async function displayGallery(m) {
+  let index = 0;
+  while (true) {
+    logger.info(`Navigating to omelette gallery ${index + 1}`);
+    await m.home();
+    await m.xdraw(GALLERY[index]);
+    // the exhibits footer keys on a black row 24, without the rule
+    await m.pos(24, 1);
+    await m.backcolor(m.noir);
+    await m.plot(" ", 40);
+    await m.pos(24, 23);
+    await m.color(m.vert);
+    await m.print("prev ");
+    await m.inverse();
+    await m.color(m.cyan);
+    await m.print(" 1 ");
+    await m.inverse(0);
+    await m.pos(24, 33);
+    await m.color(m.vert);
+    await m.print("next ");
+    await m.inverse();
+    await m.color(m.cyan);
+    await m.print(" 3 ");
+    await m.inverse(0);
+    await m.pos(24, 1);
+    await m.color(m.vert);
+    await m.print("back → ");
+    await m.inverse();
+    await m.color(m.cyan);
+    await m.print("SOMMAIRE");
+    await m.inverse(0);
+    const [char, key] = await m.key();
+    if (key === m.suite || key === m.droite || char === "3") index = (index + 1) % GALLERY.length;
+    else if (key === m.retour || key === m.gauche || char === "1") index = (index + GALLERY.length - 1) % GALLERY.length;
+    else return;
+  }
+}
+
+export { omeletteFacts, displayOmeletteFacts };
