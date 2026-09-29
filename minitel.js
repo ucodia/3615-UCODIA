@@ -25,6 +25,8 @@ const INSTANCES = new WeakMap();
 export class Minitel {
   #pendingReject = null;
   #latched = null;
+  #outgoing = "";
+  #flushScheduled = false;
 
   /**
    * Class for managing videotex input/output with a Minitel
@@ -88,23 +90,38 @@ export class Minitel {
     this.PRO3 = "\x1b\x3b";
   }
 
-  // Private WebSocket methods
+  // Writes are coalesced: a page's calls accumulate and go out as one frame, either
+  // when the page waits for input or on the next turn of the event loop.
   async #write(data) {
     if (typeof data === "string") {
-      await this.ws.send(data);
+      this.#outgoing += data;
     } else {
       // If data is a Uint8Array, convert it to a string
       const dataStr = new TextDecoder().decode(data);
       // Remove any 0xFF characters and everything after
       const ffIndex = dataStr.indexOf("\xff");
-      const cleanData =
-        ffIndex > 0 ? dataStr.substring(0, ffIndex - 1) : dataStr;
-      await this.ws.send(cleanData);
+      this.#outgoing += ffIndex > 0 ? dataStr.substring(0, ffIndex - 1) : dataStr;
     }
+    if (!this.#flushScheduled) {
+      this.#flushScheduled = true;
+      setImmediate(() => {
+        this.#flushScheduled = false;
+        try { this.#flush(); } catch {}
+      });
+    }
+  }
+
+  // Synchronous so that a read can flush and register itself in the same turn.
+  #flush() {
+    if (!this.#outgoing) return;
+    const data = this.#outgoing;
+    this.#outgoing = "";
+    this.ws.send(data);
   }
 
   async #read(maxlen = 1) {
     if (this.closed) throw new ClosedError();
+    this.#flush();
     if (this.#latched) {
       const error = this.#latched;
       this.#latched = null;
