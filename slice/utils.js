@@ -10,6 +10,12 @@ const EXHIBITS_URL = `${BASE_URL}?per_page=200&categories[]=MMDIM4KVPD4DWPWJFHWG
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const urlCache = new Map();
 
+const DATE_PREFIX = /^[A-Za-z]+\s+\d+(\s*-\s*([A-Za-z]+\s+)?\d+)?\s*-\s*/;
+
+export function eventName(title) {
+  return title.replace(DATE_PREFIX, "").trim();
+}
+
 async function getEvents(URL) {
   const cached = urlCache.get(URL);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
@@ -39,7 +45,7 @@ async function getEvents(URL) {
         const zonedDate = toZonedTime(date, details.timezone);
 
         return {
-          name: product.name.split(" - ")[1]?.trim(),
+          name: eventName(product.name),
           date: zonedDate,
           displayDate: format(zonedDate, "EEE, MMMM do, h:mm a"),
           description: product.short_description,
