@@ -57,7 +57,7 @@ Copy `.env.example` to `.env` and fill it in. The file is ignored by git and rea
 
 A Minitel 1B turns its screen off after four to five minutes without received data or a key press. After `IDLE_SECONDS` without a key the server abandons the current page and shows an animated "press any key" screen, which also keeps the terminal awake; any key returns to the welcome page. While a page is in use a NUL goes out every `KEEPALIVE_SECONDS` so the screen stays on.
 
-To test the terminal pages from a browser, open the emulator with the token in the url, `http://localhost:3615/?token=<TERMINAL_TOKEN>`: the page offers it as the websocket subprotocol and the server treats that browser as the terminal. Outside production the server prints that url at startup. The token then sits in the browser history, so do this on your own machine only.
+To test the terminal pages from a browser, open the emulator with the token in the url, `http://localhost:3615/?token=<TERMINAL_TOKEN>`: the page offers it as the websocket subprotocol and the server treats that browser as the terminal. Outside production the server logs that url at startup with `<TERMINAL_TOKEN>` in place of the token, which is never written to a log. The token then sits in the browser history, so do this on your own machine only.
 
 ### Who gets what
 
@@ -111,7 +111,7 @@ This format is the contract: anything that writes these lines keeps the report w
 | `landing` | info | via (`tunnel` or `lan`) |
 | `download` | info | hash, filter |
 | `download_missing` | info | name, cut to 200 characters (a photo link with no picture behind it, expired or never published) |
-| `terminal_url` | info | url (outside production) |
+| `terminal_url` | info | url, with `<TERMINAL_TOKEN>` in place of the token (outside production) |
 | `camera_probe_failed`, `token_missing`, `store_purge_failed`, `store_sweep_failed`, `capture_failed`, `publish_failed`, `dump_failed`, `events_fetch_failed`, `screen_load_failed`, `marquee_failed`, `vdt_rejected` | warn | error, and file or url where it applies |
 | `subprotocol_rejected`, `local_only_refused` | warn | ip; `local_only_refused` adds path |
 | `page_error`, `ws_error`, `server_error` | error | error, stack |

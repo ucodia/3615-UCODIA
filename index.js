@@ -135,7 +135,7 @@ async function welcomePage(websocket, req, { terminal = false } = {}) {
       commit: readCommit(dirname(fileURLToPath(import.meta.url))),
     });
     if (token && process.env.NODE_ENV !== "production") {
-      logger.info("terminal_url", { url: `${config.publicUrl}/?token=${token}` });
+      logger.info("terminal_url", { url: `${config.publicUrl}/?token=<TERMINAL_TOKEN>` });
     }
   });
 })().catch((err) => {
