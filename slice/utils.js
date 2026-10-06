@@ -1,6 +1,7 @@
 import axios from "axios";
 import { parse, format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
+import logger from "../logger.js";
 
 const BASE_URL =
   "https://cdn5.editmysite.com/app/store/api/v28/editor/users/137962747/sites/821974950840857745/products";
@@ -19,7 +20,7 @@ export function eventName(title) {
 async function getEvents(URL) {
   const cached = urlCache.get(URL);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
-    console.log("Events cache hit:", URL);
+    logger.debug("events_cache", { url: URL, hit: true });
     return cached.events;
   }
   try {
@@ -64,10 +65,10 @@ async function getEvents(URL) {
       .sort((a, b) => new Date(a.date) - new Date(b.date));
 
     urlCache.set(URL, { events, fetchedAt: Date.now() });
-    console.log("Events cache set:", URL);
+    logger.debug("events_cache", { url: URL, hit: false });
     return events;
   } catch (error) {
-    console.error("Error fetching or processing events:", error.message);
+    logger.warn("events_fetch_failed", { url: URL, error: error.message });
     throw error;
   }
 }

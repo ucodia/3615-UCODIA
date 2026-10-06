@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import logger from "./logger.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -310,7 +311,7 @@ export class Minitel {
       const data = await fs.readFile(join(__dirname, fichier));
       await this.#write(data);
     } catch (error) {
-      console.error(`Error loading file ${fichier}:`, error);
+      logger.warn("screen_load_failed", { file: fichier, error: error.message });
     }
   }
 
@@ -735,7 +736,7 @@ export class Minitel {
       const data = await fs.readFile(join(__dirname, fichier));
       await this.#write(data);
     } catch (error) {
-      console.error(`Error loading file ${fichier}:`, error);
+      logger.warn("screen_load_failed", { file: fichier, error: error.message });
     }
   }
 
@@ -747,7 +748,7 @@ export class Minitel {
       const data = await fs.readFile(join(__dirname, fichier));
       this.ecrans[num] = data;
     } catch (error) {
-      console.error(`Error loading file ${fichier}:`, error);
+      logger.warn("screen_load_failed", { file: fichier, error: error.message });
     }
   }
 

@@ -12,7 +12,7 @@ export async function vdtHandler(req, res) {
     res.set("X-Vdt-Bytes", String(bytes.length));
     res.send(bytes);
   } catch (error) {
-    logger.warn(`[API] /api/vdt rejected: ${error.message}`);
+    logger.warn("vdt_rejected", { error: error.message });
     res.status(400).type("text").send(error.message);
   }
 }
