@@ -1,12 +1,12 @@
 import { Minitel, IdleError, ClosedError } from "./minitel.js";
 import { startIdle, runAttract } from "./slice/attract.js";
-import { startServer } from "./server.js";
+import { startServer, startupUrls } from "./server.js";
 import { Camera } from "./photobooth/camera.js";
 import { buildPrograms } from "./slice/programs.js";
 import { PhotoStore } from "./photobooth/store.js";
 import { photoboothConfig } from "./photobooth/config.js";
 import { programsFor } from "./slice/menu.js";
-import { terminalToken, idleConfig } from "./config.js";
+import { terminalToken, idleConfig, readCommit } from "./config.js";
 import logger from "./logger.js";
 import { fileURLToPath } from "url";
 import { dirname, join, resolve } from "path";
@@ -39,7 +39,7 @@ async function welcomePage(websocket, req, { terminal = false } = {}) {
 
   // Function to display the welcome page
   async function displayWelcome() {
-    logger.info("Navigating to welcome page");
+    logger.info("page", { page: "welcome" });
     await m.home();
     await m.cls();
     await m.xdraw("screens/slice.vdt");
@@ -88,13 +88,14 @@ async function welcomePage(websocket, req, { terminal = false } = {}) {
           await program.handoff(websocket);
           await displayWelcome();
         } else {
+          logger.info("invalid_option", { key: input?.trim() ?? "" });
           await m.message(0, 1, 2, "Invalid option", true);
           await m.del(23, 2 + promptText.length);
           await m.pos(23, 2 + promptText.length);
         }
       } catch (error) {
         if (!(error instanceof IdleError)) throw error;
-        logger.info("Idle: attract screen");
+        logger.info("attract");
         watchdog.stop();
         await runAttract(m);
         watchdog = watch();
@@ -103,7 +104,6 @@ async function welcomePage(websocket, req, { terminal = false } = {}) {
     }
   } catch (error) {
     if (!(error instanceof ClosedError)) throw error;
-    logger.info("Connection closed");
   } finally {
     watchdog.stop();
   }
@@ -114,21 +114,30 @@ async function welcomePage(websocket, req, { terminal = false } = {}) {
   try {
     await photoStore.purge();
   } catch (error) {
-    logger.warn(`Photobooth store purge failed: ${error.message}`);
+    logger.warn("store_purge_failed", { error: error.message });
   }
+  let cameraMode;
   try {
     const mode = await camera.probe();
-    logger.info(`Photobooth camera ${config.device}: ${mode ? `${mode.width}x${mode.height}` : "default mode"}`);
+    cameraMode = mode ? `${mode.width}x${mode.height}` : "default";
   } catch (error) {
-    logger.warn(`Photobooth camera probe failed: ${error.message}`);
+    logger.warn("camera_probe_failed", { error: error.message });
   }
   const token = terminalToken();
-  if (!token) logger.warn("TERMINAL_TOKEN is unset or shorter than 32 characters: no connection can use the photobooth");
-  logger.info(`Attract screen after ${idle.idleMs / 1000} s idle, keep-alive every ${idle.keepaliveMs / 1000} s`);
-  startServer(welcomePage, 3615, { photoStore, terminalToken: token, publicUrl: config.publicUrl });
-  if (token && process.env.NODE_ENV !== "production") {
-    logger.info(`Emulator as the terminal (token in the url, not logged in production): ${config.publicUrl}/?token=${token}`);
-  }
+  if (!token) logger.warn("token_missing");
+  const { server } = startServer(welcomePage, 3615, { photoStore, terminalToken: token, publicUrl: config.publicUrl });
+  server.once("listening", () => {
+    logger.info("start", {
+      url: startupUrls(3615, config.publicUrl).emulator,
+      camera: cameraMode,
+      idle_s: idle.idleMs / 1000,
+      keepalive_s: idle.keepaliveMs / 1000,
+      commit: readCommit(dirname(fileURLToPath(import.meta.url))),
+    });
+    if (token && process.env.NODE_ENV !== "production") {
+      logger.info("terminal_url", { url: `${config.publicUrl}/?token=${token}` });
+    }
+  });
 })().catch((err) => {
   console.error("Server error:", err);
   process.exit(1);
