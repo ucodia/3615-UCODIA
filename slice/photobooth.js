@@ -61,6 +61,7 @@ export function createPhotobooth({
   const caption = `scan to download - expires in ${Math.max(1, Math.round(ttl / 60))} min`;
   return async function photobooth(websocket) {
     const m = makeMinitel(websocket);
+    log.info("page", { page: "photobooth" });
     let shot = null;
     let index = 0;
     let lastKey = 0;
@@ -106,13 +107,13 @@ export function createPhotobooth({
       try {
         const jpeg = await camera.capture();
         const hash = hashOf(jpeg);
-        if (dump) await dump(jpeg, hash).catch((error) => log.warn(`Photobooth: dump failed: ${error.message}`));
+        if (dump) await dump(jpeg, hash).catch((error) => log.warn("dump_failed", { error: error.message }));
         shot = { hash, cells: await convert(jpeg), pngs: new Map() };
         index = 0;
-        log.info(`Photobooth: captured ${shot.hash}`);
+        log.info("capture", { hash: shot.hash });
         await showPicture();
       } catch (error) {
-        log.warn(`Photobooth: capture failed: ${error.message}`);
+        log.warn("capture_failed", { error: error.message });
         await show(renderIdle());
         await notify("camera not available", 3);
       }
@@ -125,12 +126,12 @@ export function createPhotobooth({
         if (!shot.pngs.has(filter)) shot.pngs.set(filter, await render(shot.cells.get(filter)));
         await store.publish(name, shot.pngs.get(filter));
       } catch (error) {
-        log.warn(`Photobooth: publish failed: ${error.message}`);
+        log.warn("publish_failed", { error: error.message });
         await notify("download not available", 3);
         return;
       }
       const url = `${publicUrl}/p/${name}`;
-      log.info(`Photobooth: published ${url}`);
+      log.info("publish", { hash: shot.hash, filter: FILTER_CODES[filter] });
       await show(renderQr(url, caption) || renderUrl(url), { menuHint: false });
       // any key or the timeout brings the picture back; a key arriving during the redraw is dropped
       await new Promise((resolve) => {

@@ -10,8 +10,6 @@ async function sliceSchedule(websocket, type) {
     type === "exhibits"
       ? "UPCOMING EXHIBITS @ Slice"
       : "UPCOMING WORKSHOPS @ Slice";
-  const scheduleLabel =
-    type === "exhibits" ? "exhibit schedule" : "workshop schedule";
 
   let page = 0;
   let perPage = 5;
@@ -21,7 +19,7 @@ async function sliceSchedule(websocket, type) {
 
   while (true) {
     if (!skipFrame) {
-      logger.info(`Navigating to ${scheduleLabel} page ${page + 1}`);
+      logger.info("page", { page: type, n: page + 1 });
       const pageEvents = events.slice(page * perPage, (page + 1) * perPage);
       await m.home();
 

@@ -291,3 +291,37 @@ test("the camera is closed when the key read is cancelled", async () => {
   await assert.rejects(Promise.race([pending, new Promise((_, reject) => setTimeout(() => reject(new Error("hung")), 500))]), IdleError);
   assert.equal(closed, 1);
 });
+
+function recordingLog() {
+  const entries = [];
+  return {
+    entries,
+    info: (msg, fields) => entries.push(["info", msg, fields]),
+    warn: (msg, fields) => entries.push(["warn", msg, fields]),
+  };
+}
+
+test("the page, a capture and a publish are logged with the hash and the filter code", async () => {
+  const log = recordingLog();
+  const { run } = harness([" ", "f", "d", "x", 6], { log });
+  await run();
+  const hash = hashOf(JPEG);
+  assert.deepEqual(log.entries, [
+    ["info", "page", { page: "photobooth" }],
+    ["info", "capture", { hash }],
+    ["info", "publish", { hash, filter: FILTER_CODES[FILTERS[1]] }],
+  ]);
+});
+
+test("a failed capture and a failed publish are logged with their error", async () => {
+  const log = recordingLog();
+  const failing = harness([" ", 6], { log, camera: { capture: async () => { throw new Error("camera timeout"); } } });
+  await failing.run();
+  const broken = { publish: async () => { throw new Error("disk full"); } };
+  const publishing = harness([" ", "d", 6], { log, store: broken });
+  await publishing.run();
+  assert.deepEqual(log.entries.filter((e) => e[0] === "warn"), [
+    ["warn", "capture_failed", { error: "camera timeout" }],
+    ["warn", "publish_failed", { error: "disk full" }],
+  ]);
+});

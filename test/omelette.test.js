@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { displayOmeletteFacts, ageInYears } from "../slice/omelette.js";
+import { captureLogs } from "./log-capture.js";
 
 // A Minitel stand-in: records the screens drawn and feeds keys in order.
 function fakeMinitel(keys) {
@@ -75,4 +76,22 @@ test("the facts page prints the computed age", async () => {
   await displayOmeletteFacts(m);
   const age = m.printed.find((t) => t.startsWith("Age:"));
   assert.equal(age, `Age:   ${ageInYears(new Date(2018, 10, 1))} y.o.`);
+});
+
+test("the facts page and each gallery picture are logged as omelette pages", async () => {
+  const capture = captureLogs();
+  try {
+    await displayOmeletteFacts(fakeMinitel(["3", "3", "SOMMAIRE", "SOMMAIRE"]));
+  } finally {
+    capture.stop();
+  }
+  assert.deepEqual(
+    capture.lines.filter((l) => l.msg === "page").map(({ page, view, n }) => ({ page, view, n })),
+    [
+      { page: "omelette", view: "facts", n: undefined },
+      { page: "omelette", view: "gallery", n: 1 },
+      { page: "omelette", view: "gallery", n: 2 },
+      { page: "omelette", view: "facts", n: undefined },
+    ],
+  );
 });

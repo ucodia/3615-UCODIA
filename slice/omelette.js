@@ -23,7 +23,7 @@ async function displayOmeletteFacts(m) {
 
   while (true) {
     if (!skipFrame) {
-      logger.info("Navigating to omelette facts page");
+      logger.info("page", { page: "omelette", view: "facts" });
       await m.home();
 
       // header
@@ -117,7 +117,7 @@ const GALLERY = ["01", "02", "03", "04"].map((n) => `screens/omelette-gallery-${
 async function displayGallery(m) {
   let index = 0;
   while (true) {
-    logger.info(`Navigating to omelette gallery ${index + 1}`);
+    logger.info("page", { page: "omelette", view: "gallery", n: index + 1 });
     await m.home();
     await m.xdraw(GALLERY[index]);
     // the exhibits footer keys on a black row 24, without the rule

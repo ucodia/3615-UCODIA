@@ -22,7 +22,7 @@ function startMarquee(m, page) {
   let offset = 1;
   const timer = setInterval(() => {
     const frame = encode(renderLegendNotes(page, offset++));
-    if (frame) m.send(frame).catch((error) => logger.warn(`Marquee: ${error.message}`));
+    if (frame) m.send(frame).catch((error) => logger.warn("marquee_failed", { error: error.message }));
   }, MARQUEE_MS);
   return () => clearInterval(timer);
 }
@@ -71,7 +71,7 @@ async function drawMapFooter(m, page, pageTotal) {
 }
 
 async function showQrPage(m) {
-  logger.info("Navigating to venables vibes QR page");
+  logger.info("page", { page: "venables", view: "qr" });
   await m.home();
   await m.send(qrVideotex);
   await m.pos(24, 1);
@@ -93,7 +93,7 @@ async function venablesVibes(websocket) {
 
   while (true) {
     if (!skipFrame) {
-      logger.info(`Navigating to venables vibes page ${page + 1}`);
+      logger.info("page", { page: "venables", view: "map", n: page + 1 });
       await m.home();
       await m.send(mapVideotex[page]);
       await drawCompass(m);
