@@ -7,6 +7,7 @@
     "start": "node --env-file-if-exists=.env index.js",
     "dev": "nodemon --exec \"node --env-file-if-exists=.env\" index.js",
     "test": "node --test",
+    "stats": "node bin/stats.js",
     "esp32:config": "node bin/esp32-config.js",
     "esp32:core-check": "arduino-cli core list | grep -E '^esp32:esp32 +2\\.0\\.' >/dev/null || { echo 'ESP32 core 2.0.x required (the sketch does not run on 3.x): arduino-cli core install esp32:esp32@2.0.17' >&2; exit 1; }",
     "esp32:build": "npm run esp32:core-check && npm run esp32:config && arduino-cli compile --fqbn esp32:esp32:esp32 esp32/client",
