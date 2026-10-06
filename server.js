@@ -2,12 +2,14 @@ import express from "express";
 import http from "http";
 import path from "path";
 import { fileURLToPath } from "url";
-import { timingSafeEqual } from "crypto";
+import { randomBytes, timingSafeEqual } from "crypto";
 import { WebSocketServer } from "ws";
-import logger from "./logger.js";
+import logger, { withLogContext, errorFields } from "./logger.js";
 import { vdtHandler } from "./image/api.js";
+import { FILTER_CODES } from "./slice/photobooth-screens.js";
 
 const MAX_PAYLOAD = 512 * 1024;
+const PHOTO_NAME = new RegExp(`^([0-9a-f]{7})-(${Object.values(FILTER_CODES).join("|")})\\.png$`);
 
 function getClientIp(req) {
   return (
@@ -47,25 +49,31 @@ export function startServer(serviceHandler, port, { photoStore = null, sweepMs =
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
   app.use((req, res, next) => {
-    logger.info(`[HTTP] ${req.method} ${req.path} - ${getClientIp(req)}`);
+    if (LOCAL_ONLY.test(req.path) && isTunnelRequest(req)) {
+      logger.warn("local_only_refused", { path: req.path.slice(0, 200), ip: getClientIp(req) });
+      return res.status(404).type("text").send("Not Found");
+    }
     next();
   });
 
-  app.use((req, res, next) => {
-    if (LOCAL_ONLY.test(req.path) && isTunnelRequest(req)) {
-      logger.warn(`[HTTP] local-only path refused through the tunnel - ${req.method} ${req.path} - ${getClientIp(req)}`);
-      return res.status(404).type("text").send("Not Found");
-    }
+  app.get("/", (req, res, next) => {
+    if (req.method === "GET") logger.info("landing", { via: isTunnelRequest(req) ? "tunnel" : "lan" });
     next();
   });
 
   app.post("/api/vdt", express.raw({ type: () => true, limit: "10mb" }), vdtHandler);
   if (photoStore) {
     app.get("/p/:name", async (req, res) => {
+      const { name } = req.params;
+      const file = await photoStore.get(name).catch(() => null);
+      if (!file) {
+        logger.info("download_missing", { name: name.slice(0, 200) });
+        return res.status(404).type("text").send("Not found");
+      }
       try {
-        const file = await photoStore.get(req.params.name);
-        if (!file) throw new Error("unknown or expired");
         await new Promise((resolve, reject) => res.type("png").sendFile(file, (error) => (error ? reject(error) : resolve())));
+        const [, hash, filter] = name.match(PHOTO_NAME) ?? [];
+        logger.info("download", { hash, filter });
       } catch (error) {
         if (!res.headersSent) res.status(404).type("text").send("Not found");
       }
@@ -80,31 +88,34 @@ export function startServer(serviceHandler, port, { photoStore = null, sweepMs =
   app.use(express.static(path.join(__dirname, "emulator")));
 
   app.use((req, res) => {
-    logger.warn(`[HTTP] 404 Not Found - ${req.method} ${req.path} - ${getClientIp(req)}`);
+    logger.debug("not_found", { path: req.path.slice(0, 200) });
     res.status(404).send("Not Found");
   });
 
   wss.on("connection", (ws, req) => {
     const terminal = Boolean(terminalToken) && ws.protocol === terminalToken;
-    logger.info(`[WS] New ${terminal ? "terminal" : "public"} client connected with IP ${getClientIp(req)} - Total clients: ${wss.clients.size}`);
+    const sid = randomBytes(3).toString("hex");
+    const client = terminal ? "minitel" : "emulator";
+    const opened = Date.now();
+    logger.info("connect", { sid, client });
     if (!terminal && req.headers["sec-websocket-protocol"]) {
-      logger.warn(`[WS] Client ${getClientIp(req)} offered an unrecognised subprotocol`);
+      logger.warn("subprotocol_rejected", { ip: getClientIp(req) });
     }
     ws.on("close", () => {
-      logger.info(`[WS] Client disconnected with IP ${getClientIp(req)} - Total clients: ${wss.clients.size}`);
+      logger.info("disconnect", { sid, client, seconds: Math.round((Date.now() - opened) / 1000) });
     });
     ws.on("error", (error) => {
-      logger.error(`[WS] Error: ${error.message}`);
+      logger.error("ws_error", { sid, client, ...errorFields(error) });
     });
 
-    Promise.resolve(serviceHandler(ws, req, { terminal })).catch((error) => {
-      logger.error(`[WS] Page error: ${error.message}`);
+    withLogContext({ sid, client }, async () => serviceHandler(ws, req, { terminal })).catch((error) => {
+      logger.error("page_error", { sid, client, ...errorFields(error) });
       ws.terminate();
     });
   });
 
   const interval = setInterval(() => {
-    logger.debug(`[WS] Sending ping to ${wss.clients.size} clients`);
+    logger.debug("ping", { clients: wss.clients.size });
     wss.clients.forEach((ws) => {
       ws.ping();
     });
@@ -112,7 +123,7 @@ export function startServer(serviceHandler, port, { photoStore = null, sweepMs =
 
   const sweeper = photoStore
     ? setInterval(() => {
-        photoStore.sweep().catch((error) => logger.warn(`[Photobooth] sweep failed: ${error.message}`));
+        photoStore.sweep().catch((error) => logger.warn("store_sweep_failed", { error: error.message }));
       }, sweepMs)
     : null;
 
@@ -122,18 +133,14 @@ export function startServer(serviceHandler, port, { photoStore = null, sweepMs =
   });
 
   wss.on("error", (error) => {
-    logger.error(`[WS] Error: ${error}`);
+    logger.error("ws_error", errorFields(error));
   });
 
   server.on("error", (error) => {
-    logger.error(`[HTTP] Error: ${error}`);
+    logger.error("server_error", errorFields(error));
   });
 
-  server.listen(port, () => {
-    const urls = startupUrls(port, publicUrl);
-    logger.info(`WebSocket server started at: ${urls.websocket}`);
-    logger.info(`Emulator server started at: ${urls.emulator}`);
-  });
+  server.listen(port);
 
   return { server, wss };
 }
