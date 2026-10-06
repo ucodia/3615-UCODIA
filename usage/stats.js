@@ -34,113 +34,93 @@ export async function readLogs(dir, { warn = () => {} } = {}) {
 const count = (map, key, n = 1) => map.set(key, (map.get(key) ?? 0) + n);
 const ranked = (map) => [...map].sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])));
 
-// A visit is the run of pages on one connection between a connect or an attract and the next
-// attract or disconnect; a run that never leaves the menu is "menu only", except the menu a
-// Minitel shows by itself when it connects.
+// The menu order; a page name not listed here comes after them, by visits.
+const MENU = ["exhibits", "workshops", "omelette", "venables", "photobooth"];
+
+// With a client, keep its lines and every line that has no client (downloads, server errors).
+export function forClient(records, client) {
+  return client ? records.filter((r) => r.client === undefined || r.client === client) : records;
+}
+
+// A visit is the run of pages on one connection up to the next attract or disconnect;
+// a run that never leaves the menu is not a visit.
 export function summarize(records, { since = null } = {}) {
   const lines = records
     .filter((r) => !since || r.ts.slice(0, 10) >= since)
     .map((r, order) => ({ r, t: Date.parse(r.ts), order }))
     .sort((a, b) => a.t - b.t || a.order - b.order);
 
-  const sessions = new Map();
-  const visits = [];
-  const publishes = new Map();
-  const published = new Set();
-  const downloads = new Map();
+  const open = new Map();
+  const runs = [];
+  const published = new Map();
+  const downloaded = new Set();
   const daily = new Map();
-  const tally = {
-    connections: new Map(), invalid: new Map(), entries: new Map(), captures: new Map(), published: new Map(),
-    filters: new Map(), landings: new Map(), warnings: new Map(), missing: 0, errors: [],
-  };
+  let captures = 0;
   const day = (ts) => {
     const key = ts.slice(0, 10);
-    if (!daily.has(key)) daily.set(key, { visits: 0, captures: 0, published: 0, downloaded: 0, landings: 0 });
+    if (!daily.has(key)) daily.set(key, { visits: 0, pictures: 0, downloaded: 0 });
     return daily.get(key);
   };
-  const session = (r) => {
-    if (!sessions.has(r.sid)) sessions.set(r.sid, { client: r.client, opener: "log", visit: null });
-    return sessions.get(r.sid);
-  };
-  const close = (s) => {
-    if (s.visit) visits.push(s.visit);
-    s.visit = null;
+  const close = (sid) => {
+    if (open.has(sid)) runs.push(open.get(sid));
+    open.delete(sid);
   };
 
   for (const { r, t } of lines) {
-    if (r.level === "error") tally.errors.push(r);
-    else if (r.level === "warn") count(tally.warnings, r.msg);
-
     switch (r.msg) {
-      case "connect": {
-        if (sessions.has(r.sid)) close(sessions.get(r.sid));
-        sessions.set(r.sid, { client: r.client, opener: "connect", visit: null });
-        count(tally.connections, r.client);
-        break;
-      }
+      case "attract":
       case "disconnect":
-      case "attract": {
-        const s = sessions.get(r.sid);
-        if (!s) break;
-        close(s);
-        if (r.msg === "attract") s.opener = "attract";
-        else sessions.delete(r.sid);
+        close(r.sid);
         break;
-      }
       case "page": {
-        const s = session(r);
-        if (!s.visit) s.visit = { client: s.client, opener: s.opener, ts: r.ts, first: t, last: t, pages: 0, programs: new Set(), previous: null };
-        const v = s.visit;
-        v.last = t;
-        if (!(r.page === "welcome" && v.previous !== null)) v.pages++;
-        if (r.page !== "welcome") v.programs.add(r.page);
-        if (r.page !== "welcome" && v.previous === "welcome") count(tally.entries, s.client);
-        v.previous = r.page;
+        if (!open.has(r.sid)) open.set(r.sid, { ts: r.ts, first: t, last: t, seen: new Map() });
+        const run = open.get(r.sid);
+        run.last = t;
+        if (r.page === "welcome") break;
+        if (!run.seen.has(r.page)) run.seen.set(r.page, new Map());
+        const views = run.seen.get(r.page);
+        if (!views.has(r.view ?? "")) views.set(r.view ?? "", new Set());
+        if (r.n !== undefined) views.get(r.view ?? "").add(r.n);
         break;
       }
-      case "invalid_option":
-        count(tally.invalid, r.client);
-        count(tally.entries, r.client);
-        break;
       case "capture":
-        count(tally.captures, r.client);
-        if (r.client === "minitel") day(r.ts).captures++;
+        captures++;
+        day(r.ts).pictures++;
         break;
       case "publish":
-        publishes.set(r.hash, r.client);
-        if (published.has(`${r.hash}-${r.filter}`)) break;
-        published.add(`${r.hash}-${r.filter}`);
-        count(tally.published, r.client);
-        if (r.client === "minitel") {
-          count(tally.filters, r.filter);
-          day(r.ts).published++;
-        }
+        published.set(`${r.hash}-${r.filter}`, r.filter);
         break;
       case "download": {
         const key = `${r.hash}-${r.filter}`;
-        if (downloads.has(key)) break;
-        downloads.set(key, publishes.get(r.hash) ?? null);
+        if (downloaded.has(key)) break;
+        downloaded.add(key);
         day(r.ts).downloaded++;
         break;
       }
-      case "download_missing":
-        tally.missing++;
-        break;
-      case "landing":
-        count(tally.landings, r.via);
-        day(r.ts).landings++;
-        break;
     }
   }
-  for (const s of sessions.values()) close(s);
+  for (const sid of [...open.keys()]) close(sid);
 
-  const picked = (v) => v.programs.size > 0;
-  const minitel = visits.filter((v) => v.client === "minitel" && picked(v));
-  for (const v of minitel) day(v.ts).visits++;
-  const lengths = minitel.map((v) => v.last - v.first).sort((a, b) => a - b);
+  const visits = runs.filter((v) => v.seen.size > 0);
+  const lengths = visits.map((v) => v.last - v.first).sort((a, b) => a - b);
   const programs = new Map();
-  for (const v of minitel) for (const name of v.programs) count(programs, name);
-  const downloadedBy = (client) => [...downloads.values()].filter((c) => c === client).length;
+  for (const v of visits) {
+    day(v.ts).visits++;
+    for (const [name, views] of v.seen) {
+      if (!programs.has(name)) programs.set(name, { name, visits: 0, views: new Map() });
+      const program = programs.get(name);
+      program.visits++;
+      for (const [view, numbers] of views) {
+        if (!program.views.has(view)) program.views.set(view, { view, visits: 0, numbers: new Map() });
+        const reached = program.views.get(view);
+        reached.visits++;
+        for (const n of numbers) count(reached.numbers, n);
+      }
+    }
+  }
+  const place = (name) => (MENU.includes(name) ? MENU.indexOf(name) : MENU.length);
+  const filters = new Map();
+  for (const filter of published.values()) count(filters, filter);
   const from = lines[0]?.r.ts.slice(0, 10) ?? null;
   const to = lines.at(-1)?.r.ts.slice(0, 10) ?? null;
 
@@ -148,34 +128,18 @@ export function summarize(records, { since = null } = {}) {
     from,
     to,
     days: from ? (Date.parse(to) - Date.parse(from)) / DAY_MS + 1 : 0,
-    minitel: {
-      visits: minitel.length,
-      menuOnly: visits.filter((v) => v.client === "minitel" && !picked(v) && v.opener !== "connect").length,
-      pages: minitel.reduce((sum, v) => sum + v.pages, 0),
-      medianMs: lengths.length ? lengths[Math.floor((lengths.length - 1) / 2)] : 0,
-      longestMs: lengths.at(-1) ?? 0,
-      invalid: tally.invalid.get("minitel") ?? 0,
-      entries: tally.entries.get("minitel") ?? 0,
-      programs: ranked(programs),
-    },
-    photobooth: {
-      visits: programs.get("photobooth") ?? 0,
-      captures: tally.captures.get("minitel") ?? 0,
-      published: tally.published.get("minitel") ?? 0,
-      downloaded: downloadedBy("minitel"),
-      unattributed: downloadedBy(null),
-      missing: tally.missing,
-      filters: ranked(tally.filters),
-    },
-    emulator: {
-      landings: { tunnel: tally.landings.get("tunnel") ?? 0, lan: tally.landings.get("lan") ?? 0 },
-      connections: tally.connections.get("emulator") ?? 0,
-      visits: visits.filter((v) => v.client === "emulator" && picked(v)).length,
-      captures: tally.captures.get("emulator") ?? 0,
-      downloaded: downloadedBy("emulator"),
-    },
-    errors: tally.errors,
-    warnings: ranked(tally.warnings),
+    visits: visits.length,
+    medianMs: lengths.length ? lengths[Math.floor((lengths.length - 1) / 2)] : 0,
+    longestMs: lengths.at(-1) ?? 0,
+    programs: [...programs.values()]
+      .sort((a, b) => place(a.name) - place(b.name) || b.visits - a.visits || a.name.localeCompare(b.name))
+      .map((p) => ({
+        ...p,
+        views: [...p.views.values()]
+          .sort((a, b) => b.visits - a.visits || a.view.localeCompare(b.view))
+          .map((v) => ({ ...v, numbers: [...v.numbers].sort((a, b) => a[0] - b[0]) })),
+      })),
+    photobooth: { captures, published: published.size, downloaded: downloaded.size, filters: ranked(filters) },
     daily: [...daily].sort((a, b) => a[0].localeCompare(b[0])),
   };
 }
@@ -183,6 +147,7 @@ export function summarize(records, { since = null } = {}) {
 const pct = (part, whole) => (whole ? `${Math.round((part / whole) * 100)}%` : "-");
 const per = (part, whole) => (whole ? (part / whole).toFixed(1) : "-");
 const num = (n) => n.toLocaleString("en-US");
+const visitsOf = (n) => `${num(n)} visit${n === 1 ? "" : "s"}`;
 
 export function duration(ms) {
   const s = Math.round(ms / 1000);
@@ -192,49 +157,31 @@ export function duration(ms) {
   return `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}m`;
 }
 
-const row = (label, value, note = "") => `  ${label.padEnd(18)}${String(value).padEnd(6)}${note ? `(${note})` : ""}`.trimEnd();
-
-export function formatReport(s) {
+export function formatReport(s, { emulatorVisits = 0 } = {}) {
   if (!s.from) return "no usage lines found";
-  const { minitel: m, photobooth: p, emulator: e } = s;
-  const out = [`3615 UCODIA usage  ${s.from} → ${s.to}  (${s.days} day${s.days === 1 ? "" : "s"})`, ""];
+  const p = s.photobooth;
+  const out = [`3615 UCODIA  Minitel usage  ${s.from} → ${s.to}  (${s.days} day${s.days === 1 ? "" : "s"})`, ""];
+  out.push(`${"Visits".padEnd(18)}${num(s.visits).padEnd(6)}about ${per(s.visits, s.days)} a day, typically ${duration(s.medianMs)}, longest ${duration(s.longestMs)}`);
 
-  out.push("MINITEL");
-  out.push(row("visits", num(m.visits), `${per(m.visits, s.days)}/day, median ${duration(m.medianMs)}, longest ${duration(m.longestMs)}`));
-  out.push(row("menu only", num(m.menuOnly), "woke it, picked nothing"));
-  out.push(row("pages", num(m.pages), `${per(m.pages, m.visits)}/visit`));
-  out.push(row("invalid options", num(m.invalid), `${pct(m.invalid, m.entries)} of menu entries`));
-  out.push("");
-  out.push(`  ${"program".padEnd(18)}${"visits".padEnd(9)}share`);
-  for (const [name, n] of m.programs) out.push(`  ${name.padEnd(18)}${String(n).padEnd(9)}${pct(n, m.visits)}`);
-  out.push("");
+  for (const program of s.programs) {
+    out.push("", `${program.name.toUpperCase().padEnd(18)}${visitsOf(program.visits)} (${pct(program.visits, s.visits)})`);
+    for (const { view, visits, numbers } of program.views) {
+      const reached = numbers.map(([n, count]) => `${n}: ${pct(count, program.visits)}`).join("   ");
+      if (view) out.push(`  ${view.padEnd(16)}${reached ? pct(visits, program.visits).padEnd(10) + reached : pct(visits, program.visits)}`);
+      else if (reached) out.push(`  ${"pages".padEnd(16)}${reached}`);
+    }
+    if (program.name === "photobooth") {
+      const looks = p.filters.map(([name, n]) => `${name} ${pct(n, p.published)}`).join("  ") || "-";
+      out.push(`  ${"pictures taken".padEnd(16)}${num(p.captures).padEnd(6)}${per(p.captures, program.visits)} per visit`);
+      out.push(`  ${"for download".padEnd(16)}${num(p.published).padEnd(6)}${pct(p.published, p.captures)} of pictures`);
+      out.push(`  ${"downloaded".padEnd(16)}${num(p.downloaded).padEnd(6)}${pct(p.downloaded, p.published)} of those`);
+      out.push(`  ${"looks".padEnd(16)}${looks}`);
+    }
+  }
 
-  out.push("PHOTOBOOTH (minitel)");
-  out.push(row("captures", num(p.captures), `${per(p.captures, p.visits)}/photobooth visit`));
-  out.push(row("published", num(p.published), `${pct(p.published, p.captures)} of captures`));
-  out.push(row("downloaded", num(p.downloaded), `${pct(p.downloaded, p.published)} of published`));
-  if (p.unattributed) out.push(row("unattributed", num(p.unattributed), "published before these logs"));
-  out.push(row("missing links", num(p.missing)));
-  const published = p.filters.reduce((sum, [, n]) => sum + n, 0);
-  out.push(`  ${"filters".padEnd(18)}${p.filters.map(([name, n]) => `${name} ${pct(n, published)}`).join("  ") || "-"}`);
-  out.push("");
-
-  out.push("EMULATOR");
-  out.push(row("landings", num(e.landings.tunnel + e.landings.lan), `tunnel ${e.landings.tunnel}, lan ${e.landings.lan}`));
-  out.push(`  ${"connections".padEnd(18)}${String(e.connections).padEnd(6)}visits ${e.visits}   captures ${e.captures}   downloaded ${e.downloaded}`);
-  out.push("");
-
-  out.push("ERRORS");
-  if (!s.errors.length && !s.warnings.length) out.push("  none");
-  const shown = s.errors.slice(-10);
-  const width = Math.max(18, ...shown.map((r) => r.msg.length + 2), ...s.warnings.map(([name]) => name.length + 2));
-  for (const r of shown) out.push(`  ${r.msg.padEnd(width)}${r.ts.slice(0, 16).replace("T", " ")}  ${r.error ?? ""}`.trimEnd());
-  if (s.errors.length > 10) out.push(`  … ${s.errors.length - 10} earlier errors`);
-  for (const [name, n] of s.warnings) out.push(`  ${name.padEnd(width)}${n}`);
-  out.push("");
-
-  const columns = ["visits", "captures", "published", "downloaded", "landings"];
-  out.push(["DAY".padEnd(12), ...columns.map((c) => c.padEnd(11))].join("").trimEnd());
-  for (const [date, d] of s.daily) out.push([date.padEnd(12), ...columns.map((c) => String(d[c]).padEnd(11))].join("").trimEnd());
+  out.push("", `${"Emulator".padEnd(18)}${visitsOf(emulatorVisits)} on the website (not counted above)`, "");
+  const columns = ["visits", "pictures", "downloaded"];
+  out.push(["DAY".padEnd(12), ...columns.map((c) => c.padEnd(9))].join("").trimEnd());
+  for (const [date, d] of s.daily) out.push([date.padEnd(12), ...columns.map((c) => String(d[c]).padEnd(9))].join("").trimEnd());
   return out.join("\n");
 }

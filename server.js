@@ -57,7 +57,7 @@ export function startServer(serviceHandler, port, { photoStore = null, sweepMs =
   });
 
   app.get("/", (req, res, next) => {
-    if (req.method === "GET") logger.info("landing", { via: isTunnelRequest(req) ? "tunnel" : "lan" });
+    if (req.method === "GET") logger.info("landing", { client: "emulator", via: isTunnelRequest(req) ? "tunnel" : "lan" });
     next();
   });
 

@@ -108,7 +108,7 @@ This format is the contract: anything that writes these lines keeps the report w
 | `attract` | info | sid, client |
 | `capture` | info | sid, client, hash |
 | `publish` | info | sid, client, hash, filter |
-| `landing` | info | via (`tunnel` or `lan`) |
+| `landing` | info | client (always `emulator`, the only page to land on), via (`tunnel` or `lan`) |
 | `download` | info | hash, filter |
 | `download_missing` | info | name, cut to 200 characters (a photo link with no picture behind it, expired or never published) |
 | `terminal_url` | info | url, with `<TERMINAL_TOKEN>` in place of the token (outside production) |
@@ -135,7 +135,7 @@ npm run stats -- --since 2026-10-10    # from that day
 npm run stats -- ~/omelette-logs       # a copy of another machine's logs/
 ```
 
-It reads `*.jsonl` and `*.jsonl.gz` in the folder, not its subfolders, and prints Minitel visits and their length, programs by visit, invalid menu entries, the photobooth from capture to download (each picture and filter counted once however often it is fetched), emulator landings and visits, errors and warnings, and a table per day.
+It reads `*.jsonl` and `*.jsonl.gz` in the folder, not its subfolders, and reports how the gallery Minitel is used: visits and their length, then one section per program in menu order, with the share of the program's visits that reached each view and each page or picture number. The photobooth section adds pictures taken, pictures put up for download, downloads (each picture and filter counted once however often it is fetched) and the looks chosen. A run of pages that never leaves the menu is not a visit. Emulator visits are one separate line. Downloads do not say who made them, so they include the rare emulator download. A table per day closes the report.
 
 ## Notes
 

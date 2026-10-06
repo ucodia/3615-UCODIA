@@ -108,7 +108,10 @@ test("GET / is a landing through the tunnel or on the lan; HEAD is not", async (
     await fetch(`${base}/`, { headers: { "cf-connecting-ip": "203.0.113.9" } });
     await fetch(`${base}/`, { method: "HEAD" });
   });
-  assert.deepEqual(lines.filter((l) => l.msg === "landing").map((l) => l.via), ["lan", "tunnel"]);
+  assert.deepEqual(
+    lines.filter((l) => l.msg === "landing").map(({ via, client }) => ({ via, client })),
+    [{ via: "lan", client: "emulator" }, { via: "tunnel", client: "emulator" }],
+  );
   assert.ok(lines.every((l) => l.ip === undefined), "no ip on landings");
 });
 
