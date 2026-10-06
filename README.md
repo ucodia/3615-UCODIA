@@ -17,7 +17,7 @@ This installs production dependencies (skipped when `package-lock.json` and the 
 
 ```sh
 systemctl status slice       # state
-journalctl -u slice -f       # live logs (also written to logs/)
+journalctl -u slice -f       # live logs (also written to logs/, see Logs)
 sudo systemctl restart slice # restart
 ```
 
@@ -82,6 +82,60 @@ On the browser emulator the picture comes from the visitor's camera. The browser
 The gallery terminal is an ESP32 bridging the Minitel to this server. Its firmware lives in [`esp32/`](esp32/README.md) and is configured from the same `.env`.
 
 At startup the camera's modes are listed and the largest 4:3 mode up to 1920 wide is used. On a Pi, add the service user to the `video` group so `/dev/video0` is readable.
+
+## Logs
+
+The server writes one JSON object per line to `logs/YYYY-MM-DD.jsonl`. A new file starts at local midnight and the previous day is gzipped to `.jsonl.gz`. Nothing is deleted. The console, and so `journalctl`, shows the same lines as text, `info page sid=a3f09c client=minitel page=photobooth`, without the timestamp under systemd since journald adds its own.
+
+```json
+{"ts":"2026-10-05T15:48:50.123-07:00","level":"info","msg":"page","sid":"a3f09c","client":"minitel","page":"photobooth"}
+```
+
+This format is the contract: anything that writes these lines keeps the report working.
+
+- `ts`: local time with the UTC offset, in the system time zone (`America/Vancouver` on the gallery Pi). Parse it before comparing two lines; string order breaks in the hour clocks fall back.
+- `level`: `error`, `warn`, `info` or `debug`. Debug lines are written nowhere unless the level in `logger.js` is lowered.
+- `msg`: a name from the table below, never a sentence.
+- `sid` and `client`: on every line written while serving a websocket connection. `sid` is 6 hex characters per connection; `client` is `minitel` for the connection presenting `TERMINAL_TOKEN`, `emulator` otherwise.
+- Fields that do not apply are left out. Errors carry `error` and `stack`. IP addresses appear only on `subprotocol_rejected` and `local_only_refused`.
+
+| msg | level | fields |
+| --- | --- | --- |
+| `start` | info | url, camera, idle_s, keepalive_s, commit |
+| `connect`, `disconnect` | info | sid, client; `disconnect` adds seconds |
+| `page` | info | sid, client, page, view, n |
+| `invalid_option` | info | sid, client, key |
+| `attract` | info | sid, client |
+| `capture` | info | sid, client, hash |
+| `publish` | info | sid, client, hash, filter |
+| `landing` | info | via (`tunnel` or `lan`) |
+| `download` | info | hash, filter |
+| `download_missing` | info | name, cut to 200 characters (a photo link with no picture behind it, expired or never published) |
+| `terminal_url` | info | url (outside production) |
+| `camera_probe_failed`, `token_missing`, `store_purge_failed`, `store_sweep_failed`, `capture_failed`, `publish_failed`, `dump_failed`, `events_fetch_failed`, `screen_load_failed`, `marquee_failed`, `vdt_rejected` | warn | error, and file or url where it applies |
+| `subprotocol_rejected`, `local_only_refused` | warn | ip; `local_only_refused` adds path |
+| `page_error`, `ws_error`, `server_error` | error | error, stack |
+| `not_found`, `events_cache`, `ping` | debug | path; url and hit; clients |
+
+| page | view | n |
+| --- | --- | --- |
+| `welcome` | | |
+| `exhibits`, `workshops` | | page number |
+| `omelette` | `facts` or `gallery` | gallery picture |
+| `venables` | `map` or `qr` | map page |
+| `photobooth` | | |
+
+The Minitel's connection stays open for days, so a visit is the run of pages between a `connect` or an `attract` and the next `attract` or `disconnect`. Its length runs from its first page to its last.
+
+### Usage report
+
+```sh
+npm run stats                          # all history in logs/
+npm run stats -- --since 2026-10-10    # from that day
+npm run stats -- ~/omelette-logs       # a copy of another machine's logs/
+```
+
+It reads `*.jsonl` and `*.jsonl.gz` in the folder, not its subfolders, and prints Minitel visits and their length, programs by visit, invalid menu entries, the photobooth from capture to download (each picture and filter counted once however often it is fetched), emulator landings and visits, errors and warnings, and a table per day.
 
 ## Notes
 
